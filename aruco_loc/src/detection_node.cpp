@@ -2,7 +2,7 @@
 #include "detection_node.hpp"
 
 
-// used for parameter binding of callbacks (see registration of callbacks in cosntructor)
+// Used for parameter binding of callbacks (see registration of callbacks in cosntructor)
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -64,22 +64,21 @@ void ImageDetectionNode::exact_sync_callback(const sensor_msgs::msg::Image::Cons
 }
 
 
-// !QUALCHE COMMENTINO NON FAREBBE SCHIFO!
 void ImageDetectionNode::stereo_target_detect(cv_bridge::CvImageConstPtr left_img, cv_bridge::CvImageConstPtr right_img) {
-	// contain the ids of markers found each image
+	// Contains the ids of markers found each image
 	std::vector<int> left_markerIds;
 	std::vector<int> right_markerIds;
-	// corner location of found markers. order is based on list of ids
+	// Corner location of found markers. order is based on list of ids
 	std::vector<std::vector<cv::Point2f>> left_markerCorners;
 	std::vector<std::vector<cv::Point2f>> right_markerCorners;
 	cv::Mat left, right;
-	// we accept the standard color format from stereolabs cameras. detector accepts color images without alpha component.
+	// We accept the standard color format from stereolabs cameras. detector accepts color images without alpha component.
 	cv::cvtColor(left_img->image, left, cv::COLOR_RGBA2RGB);
 	cv::cvtColor(right_img->image, right, cv::COLOR_BGRA2BGR);
 
 	detector_.detectMarkers(left, left_markerCorners, left_markerIds);
 	detector_.detectMarkers(right, right_markerCorners, right_markerIds);
-	// look for our marker. if not found, do not proceed further!
+	// Look for our marker. if not found, do not proceed further!
 	auto left_mark_it = std::find(left_markerIds.begin(), left_markerIds.end(), marker_idx_);
 	auto right_mark_it = std::find(right_markerIds.begin(), right_markerIds.end(), marker_idx_);
 	if (left_mark_it == left_markerIds.end()) {

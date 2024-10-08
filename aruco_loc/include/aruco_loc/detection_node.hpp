@@ -88,35 +88,19 @@ private:
 
 
 	/**
-	 * @brief	Publisher of detected target location.
-	 */
-    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;
-
-	/**
-	 * @brief	Receives the right image stream.
-	 */
-	message_filters::Subscriber<sensor_msgs::msg::Image> sub_right_img_;
-
-	/**
-	 * @brief	Receives the left image stream.
-	 */
-	message_filters::Subscriber<sensor_msgs::msg::Image> sub_left_img_;
-	
-	/**
 	 * @brief	Synchronizes left and right image topics based on exact matching of timestamps.
 	 */
 	std::shared_ptr<message_filters::TimeSynchronizer<sensor_msgs::msg::Image,sensor_msgs::msg::Image>> sync_exact_;
-
-	/**
-	 * @brief	ArUco marker detector.
-	 */
-	cv::aruco::ArucoDetector detector_;
+	rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;			/**< Publisher of detected target location.*/
+	message_filters::Subscriber<sensor_msgs::msg::Image> sub_right_img_;	/**< Receives the right image stream.*/
+	message_filters::Subscriber<sensor_msgs::msg::Image> sub_left_img_;		/**< Receives the left image stream.*/
 	
 	/**
 	 * @brief	ArUco dictionary of markers to be used.
 	 *			See OpenCV's documentation on corresponding enum entries.
 	 */
 	cv::aruco::PredefinedDictionaryType aruco_dict_;
+	cv::aruco::ArucoDetector detector_;		/**< ArUco marker detector.*/
 	
 	int marker_idx_;	/**< Index of ArUco marker to detect.*/
 	double B;			/**< Horizontal displacement of stereo cameras (assume no rotations).*/

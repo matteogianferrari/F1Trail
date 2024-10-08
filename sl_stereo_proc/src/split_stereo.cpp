@@ -1,7 +1,7 @@
 #include "split_stereo.hpp"
 
 
-// used for parameter binding in callbacks to be registered with subscribers.
+// Used for parameter binding in callbacks to be registered with subscribers.
 using std::placeholders::_1;
 
 

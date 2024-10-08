@@ -68,26 +68,15 @@ private:
      *              It expects a frame with an even number of columns, otherwise an exception is thrown.
      *
      * @param[in]   img Original image wrapped by cv_bridge.
-     * @param[out]   left Stores the resulting left image after the split.
-     * @param[out]   right Stores the resulting right image after the split.
+     * @param[out]  left Stores the resulting left image after the split.
+     * @param[out]  right Stores the resulting right image after the split.
      */
     void split_stereo(cv_bridge::CvImageConstPtr img, cv::Mat &left, cv::Mat &right);
 
 
-    /**
-     * @brief Receives stereo image published by a Zed camera topic.
-     */
-    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_img_;
-
-    /**
-     * @brief Publisher for the left image component.
-     */
-  	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_left_;
-
-    /**
-     * @brief Publisher for the right image component.
-     */
-  	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_right_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_img_;  /**< Receives stereo image published by a Zed camera topic.*/
+  	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_left_;    /**< Publisher for the left image component.*/
+  	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_right_;   /**< Publisher for the right image component.*/
 };
 
 #endif  // SPLIT_STEREO_HPP_
