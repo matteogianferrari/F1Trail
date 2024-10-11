@@ -1,0 +1,7 @@
+/**:
+  ros__parameters:
+    marker_idx: 16
+    aruco_dict: 10
+    left_img_topic: /left_image
+    right_img_topic: /right_image
+    use_sim_time: false
