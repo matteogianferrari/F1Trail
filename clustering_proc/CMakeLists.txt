@@ -21,11 +21,9 @@ find_package(ament_cmake REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(OpenCV 4.8 REQUIRED)
-find_package(message_filters REQUIRED)
+find_package(PCL REQUIRED)
+find_package (Eigen3 REQUIRED NO_MODULE)
 
 add_executable(clustering src/clustering.cpp)
 target_include_directories(clustering PUBLIC
@@ -34,7 +32,13 @@ target_include_directories(clustering PUBLIC
 
 include_directories(include/clustering_proc)
 
-ament_target_dependencies(clustering rclcpp message_filters std_msgs sensor_msgs cv_bridge OpenCV)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
+target_link_libraries(clustering ${PCL_LIBRARIES} Eigen3::Eigen)
+
+ament_target_dependencies(clustering rclcpp sensor_msgs PCL Eigen3)
 
 install(TARGETS clustering
   DESTINATION lib/${PROJECT_NAME})
