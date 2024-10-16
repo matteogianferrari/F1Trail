@@ -6,15 +6,15 @@ import os
 def generate_launch_description():
     ld = LaunchDescription()
 
-    config = os.path.join(get_package_share_directory('aruco_loc'), 'config', 'detection_node.yaml')
+    config = os.path.join(get_package_share_directory('clustering_proc'), 'config', 'clustering_node.yaml')
 
-    detector = Node(
-        package='aruco_loc',
-        executable='detection_node',
-        name='target_detector',
+    clustering = Node(
+        package='clustering_proc',
+        executable='clustering',
+        name='scan_clustering',
         parameters=[config]
     )
 
-    ld.add_action(detector)
+    ld.add_action(clustering)
     
     return ld

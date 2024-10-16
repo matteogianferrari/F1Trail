@@ -1,7 +1,8 @@
 /**:
   ros__parameters:
-    marker_idx: 16
-    aruco_dict: 10
-    left_img_topic: /left_image
-    right_img_topic: /right_image
-    use_sim_time: false
+    voxel: [0.0, 0.0, 0.0]
+    crop_box_min: [0.0, -3.0, 0.0, 1.0]
+    crop_box_max: [5.0, 3.0, 0.0, 1.0]
+    max_cluster_size: 300
+    min_cluster_size: 10
+    ec_tollerance: 0.35

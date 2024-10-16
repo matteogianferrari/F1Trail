@@ -1,8 +1,6 @@
 #ifndef CLUSTERING_H_
 #define CLUSTERING_H_
 
-#include "../include/cluster_data.hpp"
-
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/crop_box.h>
@@ -12,27 +10,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "sensor_msgs/msg/laser_scan.hpp"
-
-
-
-// struct VoxelConf {
-//     float lx;
-//     float ly;
-//     float lz;
-// };
-
-
-// struct CropBoxConf {
-//     Eigen::Vector4f minPoint;
-//     Eigen::Vector4f maxPoint;
-// };
-
-
-// struct ClusteringConf {
-//     double ecTolerance;
-//     size_t minClusterSize;
-//     size_t maxClusterSize;
-// };
+#include <vector>
 
 
 /**
@@ -125,43 +103,22 @@ private:
      * 				Each cluster represents a potential object in the scene.
 	 *
 	 * @param[in]	inputPC Pointer to the input point cloud.
-	 * @param[in] 	clusterIndices Vector of indices corresponding to points in each cluster.
-	 * @param[in] 	clusters Vector of ClusterData objects, representing the detected clusters.
 	 */
-    void applyClustering(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC,
-                        std::vector<pcl::PointIndices>& clusterIndices,
-                        std::vector<struct ClusterData>& clusters
-    );
-
-
-    /**
-	 * @fn 			detectObject
-	 *
-	 * @brief 		Detects and identifies the object closest to a specified target point.
-	 * 
-	 * @details		Searches through the clusters to find the one closest to the target point.
-	 * 				The index of the detected object is returned.
-	 *
-	 * @param[in]	clusters Vector of ClusterData objects representing detected clusters.
-	 * @param[in] 	target The target point XYZ to which the object distance is measured.
-	 * @param[in] 	objectIndex Index of the closest object in the clusters vector.
-	 */
-    void detectObject(std::vector<struct ClusterData>& clusters, pcl::PointXYZ target, int& objectIndex);
-
-
+    std::vector<Eigen::Vector4f> applyClustering(pcl::PointCloud<pcl::PointXYZ>::ConstPtr inputPC);
 
 	// Member variables for processing
     pcl::VoxelGrid<pcl::PointXYZ> voxelGrid_;                               /**< VoxelGrid filter for downsampling the point cloud. */
     pcl::CropBox<pcl::PointXYZ> cropBox_;                                   /**< CropBox filter for limiting the point cloud to a region of interest. */
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> euclideanClustering_;    /**< Euclidean Clustering object for detecting point cloud clusters. */
 
+	rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr lidar_scan_subscription_; /**< Subscriber for lidar scan messages. */
 	
-	std::array<double,3> voxelConf_;      /**< VoxelGrid leaf sizes for downsampling in X, Y, and Z axes. */
-    Eigen::Vector4f cb_minPoint_;         /**< Minimum point for the CropBox filter. */
-    Eigen::Vector4f cb_maxPoint_;         /**< Maximum point for the CropBox filter. */
-    double ecTolerance;                   /**< Tolerance for Euclidean Clustering (maximum distance between points in a cluster). */
-    size_t minClusterSize;                /**< Minimum number of points required to form a cluster. */
-    size_t maxClusterSize;                /**< Maximum number of points allowed in a cluster. */
+	std::vector<double> voxelConf_;      	/**< VoxelGrid leaf sizes for downsampling in X, Y, and Z axes. */
+    Eigen::Vector4f cb_minPoint_;         	/**< Minimum point for the CropBox filter. */
+    Eigen::Vector4f cb_maxPoint_;         	/**< Maximum point for the CropBox filter. */
+    double ecTolerance_;                   	/**< Tolerance for Euclidean Clustering (maximum distance between points in a cluster). */
+    size_t minClusterSize_;                	/**< Minimum number of points required to form a cluster. */
+    size_t maxClusterSize_;                	/**< Maximum number of points allowed in a cluster. */
 };
 
 #endif  // CLUSTERING_H_
