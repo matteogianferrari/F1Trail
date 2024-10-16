@@ -14,12 +14,12 @@ public:
     // Constructor for initializing the PID controller and setting up subscriptions and publishers
     LongitudinalPIDNode()
         : Node("longitudinal_ctr"),
-          Kp(0.1f), Ki(0.01f), Kd(0.05f),  // PID coefficients
+          Kp(0.3f), Ki(0.02f), Kd(0.05f),  // PID coefficients
           tau(0.02f), sample_time(0.1f),  // Time constants for PID control
           integrator(0.0f), integrator_min(-0.4f),
           integrator_max(5.0f), prev_error(0.0f),
           differentiator(0.0f), prev_measurement(0.0f),
-          pid_output(0.0f), current_speed(0.5f),  // Initialize current speed
+          pid_output(0.0f), current_speed(0.0f),  // Initialize current speed
           current_position{0.0f, 0.0f}, // Initialize Position struct for current position
           target_position{0.0f, 0.0f}   // Initialize Position struct for target position
     {
@@ -33,11 +33,6 @@ public:
         // Subscribe to target position messages
         target_position_sub = this->create_subscription<geometry_msgs::msg::Point>(
             "/target_loc", 10, std::bind(&LongitudinalPIDNode::target_position_callback, this, std::placeholders::_1));
-
-        // Subscribe for current speed
-        // TODO: Check if this topic provide current speed for real
-        current_speed_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-            "/cmd_vel", 10, std::bind(&LongitudinalPIDNode::current_speed_callback, this, std::placeholders::_1));
 
         // Publisher for throttle command
         throttle_pub = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
@@ -61,13 +56,7 @@ private:
     {
         current_position.x = msg->pose.pose.position.x;  // Update current x position
         current_position.y = msg->pose.pose.position.y;  // Update current y position
-    }
-
-    // Callback for current speed
-    void current_speed_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
-    {
-        current_speed = msg->linear.x;  // Update current speed from received message
-        RCLCPP_INFO(this->get_logger(), "Received current speed: %f", current_speed);  // Log the current speed
+        current_speed = msg->twist.twist.linear.x;      // Update current speed
     }
 
     // Callback for target position
@@ -90,7 +79,6 @@ private:
         // Create and publish throttle command
         ackermann_msgs::msg::AckermannDriveStamped drive_msg;
         drive_msg.drive.speed = throttle;  // Set throttle based on PID output
-        // drive_msg.drive.steering_angle = steering_angle; // Uncomment if steering angle is used
         throttle_pub->publish(drive_msg);  // Publish the drive command
     }
 
@@ -108,7 +96,7 @@ private:
     float update_pid(float distance_to_target, float current_speed)
     {
         // Threshold for stopping
-        const float stop_threshold = 0.1f; // Distance threshold to stop
+        const float stop_threshold = 2.0f; // Distance threshold to stop (2 meters)
 
         // If the car is near the target, set throttle to zero and reset integrator
         if (distance_to_target < stop_threshold)
@@ -154,7 +142,6 @@ private:
     float Kp, Ki, Kd;        // Proportional, Integral, and Derivative gains
     float tau;               // Time constant for filtering
     float sample_time;       // Time interval for control updates
-    float output_min, output_max;  // Minimum and maximum output limits (TODO: test if necessary)
     float integrator_min, integrator_max; // Minimum and maximum values for integrator
 
     // PID state variables
@@ -167,7 +154,6 @@ private:
     // Publishers and Subscribers
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription_;  // Subscription for odometry data
     rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr target_position_sub;  // Subscription for target position
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr current_speed_sub;  // Subscription for current speed
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr throttle_pub;  // Publisher for drive commands
 
     // Timer for the control loop
