@@ -11,130 +11,157 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-//#include "sensor_msgs/msg/laser_scan.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
 
 
-struct VoxelConf {
-    float lx;
-    float ly;
-    float lz;
-};
+
+// struct VoxelConf {
+//     float lx;
+//     float ly;
+//     float lz;
+// };
 
 
-struct CropBoxConf {
-    Eigen::Vector4f minPoint;
-    Eigen::Vector4f maxPoint;
-};
+// struct CropBoxConf {
+//     Eigen::Vector4f minPoint;
+//     Eigen::Vector4f maxPoint;
+// };
 
 
-struct ClusteringConf {
-    double ecTolerance;
-    size_t minClusterSize;
-    size_t maxClusterSize;
-};
+// struct ClusteringConf {
+//     double ecTolerance;
+//     size_t minClusterSize;
+//     size_t maxClusterSize;
+// };
 
 
+/**
+ * @class 			ClusteringNode
+ * @brief 			ROS2 node that performs point cloud clustering using a 2D Lidar scan.
+ * 
+ * @details  		node subscribes to a Lidar scan topic,
+ * 					converts it into a 3D point cloud,
+ * 					and processes it using downsampling, cropping,
+ * 					and clustering techniques to detect objects in the scan.
+ */
 class ClusteringNode : public rclcpp::Node
 {
 public:
 	/**
-	* @fn     ClusteringNode
+	* @fn     		ClusteringNode
 	* 
-	* @brief  Constructs a new ClusteringNode object.
+	* @brief  		Constructs a new ClusteringNode object.
+	*
+	* @details		Initializes the node, declares parameters,
+	*				and sets up the necessary publishers and subscribers.
 	*/
     ClusteringNode();
 
+
 private:
 	/**
-	 * @fn 			readPCDFile
+	 * @fn 			laserScanCallback
 	 * 
-	 * @brief		Callback function for reading 2D point cloud from PCD file.
+	 * @brief		Callback function for receiving and processing Lidar scan data.
 	 *
-	 * @details 	This callback is called when two images with the same timestamp
-	 *				are published on their respective topics.
+	 * @details 	Converts the 2D Lidar scan to a 3D point cloud, filters it,
+	 * 				and applies clustering to detect objects.
 	 * 
-	 * @param[in]	fileName PCD file name.
-	 * @param[in] 	outputPC output cloud.
+	 * @param[in]	msg LaserScan message containing the Lidar data.
 	 */
-	void readPCDFile(const std::string &fileName, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC);;
+	void laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+
+
+	/**
+	 * @fn 			readLidarScan
+	 * 
+	 * @brief		Converts a 2D Lidar scan into a 3D point cloud.
+	 *
+	 * @details 	Each point in the Lidar scan is projected into 3D space
+	 * 				by calculating its X and Y coordinates
+	 * 				using polar coordinates, while the Z coordinate is set to zero.
+	 * 
+	 * @param[in]	scan LaserScan message containing the Lidar data.
+	 * @param[in] 	outputPC Pointer to the output 3D point cloud.
+	 */
+	void readLidarScan(const sensor_msgs::msg::LaserScan::SharedPtr scan, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC);
+
 
 	/**
 	 * @fn			reduceDensityPC
 	 *
-	 * @brief 		Target detection.
+	 * @brief 		Reduces the density of the input point cloud using a VoxelGrid filter.
 	 * 
-	 * @details		Detection is performed with opencv's ArUco marker library.
-	 *				The marker needs to be detected in both images.
-	 *				The projected center of the marker is found for each image
-	 *				and it is used to compute the disparity.
+	 * @details 	Downsamples the point cloud to reduce the number of points,
+	 * 				improving processing speed without significantly losing geometric information.
 	 *
-	 * @param[in]	inputPC input cloud.
-	 * @param[in] 	outputPC output cloud.
+	 * @param[in]	inputPC Pointer to the input point cloud.
+	 * @param[in] 	outputPC Pointer to the output 3D point cloud.
 	 */
 	void reduceDensityPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC);
+
 
 	/**
 	 * @fn 			cropFOVPC
 	 *
-	 * @brief 		Computes target's center.
+	 * @brief 		Crops the input point cloud to focus on the region of interest.
 	 * 
-	 * @details		The center is computed as the mean of corners' coordinates.
+	 * @details		Applies a CropBox filter to remove points outside the desired field of view,
+	 * 				defined by the min and max points in 3D space.
 	 *
-	 * @param[in]	inputPC input cloud.
-	 * @param[in] 	outputPC output cloud.
+	 * @param[in]	inputPC Pointer to the input point cloud.
+	 * @param[in] 	outputPC Pointer to the output 3D point cloud.
 	 */
     void cropFOVPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC);
+
 
     /**
 	 * @fn 			applyClustering
 	 *
-	 * @brief 		Computes target's center.
+	 * @brief 		Applies Euclidean Clustering to group points into distinct clusters.
 	 * 
-	 * @details		The center is computed as the mean of corners' coordinates.
+	 * @details		Segments the point cloud into clusters based on
+	 * 				the Euclidean distance between points.
+     * 				Each cluster represents a potential object in the scene.
 	 *
-	 * @param[in]	inputPC input cloud.
-	 * @param[in] 	clusterIndices cluster points indices.
-	 * @param[in] 	clusters vector of point clouds.
+	 * @param[in]	inputPC Pointer to the input point cloud.
+	 * @param[in] 	clusterIndices Vector of indices corresponding to points in each cluster.
+	 * @param[in] 	clusters Vector of ClusterData objects, representing the detected clusters.
 	 */
     void applyClustering(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC,
                         std::vector<pcl::PointIndices>& clusterIndices,
                         std::vector<struct ClusterData>& clusters
     );
 
+
     /**
 	 * @fn 			detectObject
 	 *
-	 * @brief 		Computes target's center.
+	 * @brief 		Detects and identifies the object closest to a specified target point.
 	 * 
-	 * @details		The center is computed as the mean of corners' coordinates.
+	 * @details		Searches through the clusters to find the one closest to the target point.
+	 * 				The index of the detected object is returned.
 	 *
-	 * @param[in]	clusters vector of point clouds.
-	 * @param[in] 	target Point XYZ.
-	 * @param[in] 	objectIndex index of object inside vector.
+	 * @param[in]	clusters Vector of ClusterData objects representing detected clusters.
+	 * @param[in] 	target The target point XYZ to which the object distance is measured.
+	 * @param[in] 	objectIndex Index of the closest object in the clusters vector.
 	 */
     void detectObject(std::vector<struct ClusterData>& clusters, pcl::PointXYZ target, int& objectIndex);
 
-    /**
-	 * @fn 			publishObjectCoords
-	 *
-	 * @brief 		Computes target's center.
-	 * 
-	 * @details		The center is computed as the mean of corners' coordinates.
-	 */
-    void publishObjectCoords();
 
 
-    pcl::PCDReader reader_;                                                 /**< */
-    pcl::VoxelGrid<pcl::PointXYZ> voxelGrid_;                               /**< */
-    pcl::CropBox<pcl::PointXYZ> cropBox_;                                   /**< */
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> euclideanClustering_;    /**< Focal length.*/
+	// Member variables for processing
+    pcl::VoxelGrid<pcl::PointXYZ> voxelGrid_;                               /**< VoxelGrid filter for downsampling the point cloud. */
+    pcl::CropBox<pcl::PointXYZ> cropBox_;                                   /**< CropBox filter for limiting the point cloud to a region of interest. */
+    pcl::EuclideanClusterExtraction<pcl::PointXYZ> euclideanClustering_;    /**< Euclidean Clustering object for detecting point cloud clusters. */
 
-	std::array<double,3> voxelConf_;
-	Eigen::Vector4f cb_minPoint_;
-    Eigen::Vector4f cb_maxPoint_;
-	double ecTolerance;
-    size_t minClusterSize;
-    size_t maxClusterSize;
+	
+	std::array<double,3> voxelConf_;      /**< VoxelGrid leaf sizes for downsampling in X, Y, and Z axes. */
+    Eigen::Vector4f cb_minPoint_;         /**< Minimum point for the CropBox filter. */
+    Eigen::Vector4f cb_maxPoint_;         /**< Maximum point for the CropBox filter. */
+    double ecTolerance;                   /**< Tolerance for Euclidean Clustering (maximum distance between points in a cluster). */
+    size_t minClusterSize;                /**< Minimum number of points required to form a cluster. */
+    size_t maxClusterSize;                /**< Maximum number of points allowed in a cluster. */
 };
 
 #endif  // CLUSTERING_H_

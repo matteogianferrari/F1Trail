@@ -9,7 +9,7 @@
 ClusteringNode::ClusteringNode() : Node("clustering_node") {
     // Gets all potential parameters
     // Voxel Conf
-    this->declare_parameter<std::vector<double>>("voxel", {0.,0.,0.});
+    this->declare_parameter<std::vector<double>>("voxel", {0.,0.,0.}); // maybe change the default to {0.05, 0.05, 0.f}
 	auto VoxelConf = this->get_parameter("voxel").get_value<std::vector<double>>();
     
     // maybe throw exception if the array has not exaclty 3 entries
@@ -23,8 +23,8 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
 
 
     // CropBox Conf
-    this->declare_parameter<std::vector<double>>("crop_box_min", {0.0, 0.0, 0.0, 0.0});
-    this->declare_parameter<std::vector<double>>("crop_box_max", {0.0, 0.0, 0.0, 0.0});
+    this->declare_parameter<std::vector<double>>("crop_box_min", {0.0, 0.0, 0.0, 0.0}); // maybe change the default to {0.f, -3.f, 0.f, 1.f}
+    this->declare_parameter<std::vector<double>>("crop_box_max", {0.0, 0.0, 0.0, 0.0}); // maybe change the default to {5.f, 3.f, 0.f, 1.}
     auto minPointParam = this->get_parameter("crop_box_min").get_value<std::vector<double>>();
     auto maxPointParam = this->get_parameter("crop_box_max").get_value<std::vector<double>>();
 
@@ -54,6 +54,7 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
     // Declare clustering configuration parameters
     this->declare_parameter<std::vector<size_t>>("ClusteringConf_size_topic", {0, 0});  // Min and Max cluster sizes
     this->declare_parameter("ClusteringConf_tolerance_topic", 0.0);  // Tolerance value
+    // maybe change the default to {10, 300} and 0.35f
 
     // Retrieve the size parameters (min and max cluster sizes)
     auto ClusteringConf_size_topic = this->get_parameter("ClusteringConf_size_topic").get_value<std::vector<size_t>>();
@@ -85,51 +86,81 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
     pub_clusters_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("output_clusters", 10);
 
 
-    // Subscribe to point cloud input (need to find the right topic)
-    //sub_point_cloud_.subscribe(this, left_img_topic, custom_qos_profile.get_rmw_qos_profile());
+    //                                             NEED TO MODIFY LIDAR SCAN LOCATION
+    // Create subscription to LaserScan data instead of PointCloud2
+    point_cloud_subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+        "lidar_scan", 10, std::bind(&ClusteringNode::laserScanCallback, this, std::placeholders::_1));
 
-    
 }
-
 
 
 // callback
-void ClusteringNode::pointCloudCallback()
-{
-    // implement the callback function
+void ClusteringNode::laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "Received a LaserScan message");
+
+    // Convert the LaserScan into a PointCloud
+    pcl::PointCloud<pcl::PointXYZ>::Ptr inputCloud(new pcl::PointCloud<pcl::PointXYZ>);
+    readLidarScan(msg, inputCloud);
+
+    // Proceed with voxel filtering, cropping, and clustering (same as before)
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filteredCloud(new pcl::PointCloud<pcl::PointXYZ>);
+    reduceDensityPC(inputCloud, filteredCloud);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr croppedCloud(new pcl::PointCloud<pcl::PointXYZ>);
+    cropFOVPC(filteredCloud, croppedCloud);
+
+    std::vector<pcl::PointIndices> clusterIndices;
+    std::vector<ClusterData> clusters;
+    applyClustering(croppedCloud, clusterIndices, clusters);
+
+    pcl::PointXYZ target;
+    target.x = 0.0;
+    target.y = 0.0;
+    target.z = 0.0;
+
+    int objectIndex;
+    detectObject(clusters, target, objectIndex);
+    
+    RCLCPP_INFO(this->get_logger(), "Detected object index: %d", objectIndex);
+
+    // Publish the clustered point cloud
+    sensor_msgs::msg::PointCloud2 outputMsg;
+    pcl::toROSMsg(*croppedCloud, outputMsg);
+    outputMsg.header.stamp = this->get_clock()->now();
+    pub_clusters_->publish(outputMsg);
 }
 
 
-void ClusteringNode::readPCDFile(const std::string &fileName, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC)
-{
-    pcl::PointCloud<pcl::PointXY>::Ptr inputPC {new pcl::PointCloud<pcl::PointXY>};
+void ClusteringNode::readLidarScan(const sensor_msgs::msg::LaserScan::SharedPtr scan, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC) {
+    // Point's angle used to compute (x; y) coordinates
+    double currentAngle = scan->angle_min;
+    
+    for (size_t i = 0; i < scan->ranges.size(); ++i) {
+        float range = scan->ranges[i];
 
-    // Reads the 2D point cloud from the PCD file
-    reader_.read(fileName, *inputPC);
+        // Checks for range constraints
+        if (range >= scan->range_min && range <= scan->range_max) {
+            pcl::PointXYZ point;
 
-    // maybe check for errors in reading file
+            // The Lidar returns a 2D point, thus it's converted to 3D by adding 0 to the Z-axis
+            point.x = range * cos(currentAngle);
+            point.y = range * sin(currentAngle);
+            point.z = 0.f;
 
-    // Reserves space for the 3D point cloud
-    outputPC->points.resize(inputPC->points.size());
+            // Adds the point to the output point cloud
+            outputPC->points.push_back(point);
+        }
 
-    // Converts each XY point to XYZ point
-    for (size_t i = 0; i < inputPC->points.size(); ++i) {
-        pcl::PointXYZ point;
-
-        // The Lidar returns a 2D point, thus it's converted to 3D by adding 0 to the Z-axis
-        point.x = inputPC->points[i].x;
-        point.y = inputPC->points[i].y;
-        point.z = 0.f;
-
-        // Adds the point to the output point cloud
-        outputPC->points[i] = point;
+        // Increments the angle 
+        currentAngle += scan->angle_increment;
     }
 
     // Fills additional point cloud information (not needed for the project)
-    outputPC->width = inputPC->width;           // Unit measure: [Point]
-    outputPC->height = inputPC->height;         // Unit measure: [Point]
-    outputPC->is_dense = inputPC->is_dense;     // No points are invalid
+    outputPC->width = outputPC->points.size();    // Unit measure: [Point]
+    outputPC->height = 1;                         // Unit measure: [Point]
+    outputPC->is_dense = true;                    // No points are invalid
 }
+
 
 void ClusteringNode::reduceDensityPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC)
 {
@@ -141,6 +172,7 @@ void ClusteringNode::reduceDensityPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputP
     // Apply Voxel filtering
     voxelGrid_.filter(*outputPC);
 }
+
 
 void ClusteringNode::cropFOVPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC, pcl::PointCloud<pcl::PointXYZ>::Ptr& outputPC)
 {
@@ -154,6 +186,7 @@ void ClusteringNode::cropFOVPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC, pcl
     // Apply crop box filtering
     cropBox_.filter(*outputPC);
 }
+
 
 void ClusteringNode::applyClustering(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputPC,
                                       std::vector<pcl::PointIndices>& clusterIndices,
@@ -213,6 +246,7 @@ void ClusteringNode::applyClustering(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputP
         clusters.push_back(currCluster);
     }
 }
+
 
 void ClusteringNode::detectObject(std::vector<ClusterData>& clusters, pcl::PointXYZ target, int& objectIndex)
 {
