@@ -8,17 +8,17 @@
 ClusteringNode::ClusteringNode() : Node("clustering_node") {
     // Gets all potential parameters
     // Voxel Conf
-    this->declare_parameter<std::vector<double>>("voxel", {0.,0.,0.}); // maybe change the default to {0.05, 0.05, 0.f}
+    // Maybe change the default to {0.05, 0.05, 0.f}
+    this->declare_parameter<std::vector<double>>("voxel", {0.,0.,0.});
 	voxelConf_ = this->get_parameter("voxel").get_value<std::vector<double>>();
     
-    // maybe throw exception if the array has not exaclty 3 entries
+    // Throw exception if the array has not exaclty 3 entries
     if (voxelConf_.size() != 3) {
         throw std::runtime_error("Parameter 'voxel' must contain exactly 3 entries.");
     }
 
     // Set up VoxelGrid filter parameters
     voxelGrid_.setLeafSize(voxelConf_[0], voxelConf_[1], voxelConf_[2]);
-
 
 
     // CropBox Conf
@@ -40,18 +40,21 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
                              static_cast<float>(minPointParam[2]), static_cast<float>(minPointParam[3]));
     Eigen::Vector4f maxPoint(static_cast<float>(maxPointParam[0]), static_cast<float>(maxPointParam[1]),
                              static_cast<float>(maxPointParam[2]), static_cast<float>(maxPointParam[3]));
-    // set cropbox parameters
+    // Set cropbox parameters
     cb_minPoint_ = minPoint;
     cb_maxPoint_ = maxPoint;
 
+
     // Clustering Conf
     // Declare clustering configuration parameters
-    this->declare_parameter<int64_t>("max_cluster_size", std::numeric_limits<size_t>::max());  // Max cluster size
-    this->declare_parameter<int64_t>("min_cluster_size", 0);  // Min sizes
-    this->declare_parameter<double>("ec_tollerance", 0.35);  // Tolerance value
+    this->declare_parameter<int64_t>("max_cluster_size", std::numeric_limits<size_t>::max());
+    this->declare_parameter<int64_t>("min_cluster_size", 0);
+    this->declare_parameter<double>("ec_tollerance", 0.35);
+
     // retrieve bound values for cluster size
     minClusterSize_ = this->get_parameter("max_cluster_size").get_value<int64_t>();
     maxClusterSize_ = this->get_parameter("min_cluster_size").get_value<int64_t>();
+    
     // Retrieve the tolerance parameter
     ecTolerance_ = this->get_parameter("ec_tollerance").as_double();
 
@@ -63,17 +66,15 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
 	.durability(rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE)
 	.avoid_ros_namespace_conventions(false);
 
-    // TODO: create publisher for a vector of centroids
+    // Create publisher for a vector of centroids
+    centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/cluster_centroids", 10);
 
-    //                                             NEED TO MODIFY LIDAR SCAN LOCATION
     // Create subscription to LaserScan data instead of PointCloud2
     lidar_scan_subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/lidar_scan", custom_qos_profile, std::bind(&ClusteringNode::laserScanCallback, this, std::placeholders::_1));
-
 }
 
 
-// callback
 void ClusteringNode::laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Received a LaserScan message");
 
@@ -88,10 +89,30 @@ void ClusteringNode::laserScanCallback(const sensor_msgs::msg::LaserScan::Shared
     pcl::PointCloud<pcl::PointXYZ>::Ptr croppedCloud(new pcl::PointCloud<pcl::PointXYZ>);
     cropFOVPC(filteredCloud, croppedCloud);
 
-    // get clusters centroids
+    // Get clusters centroids
     auto cluster_centroids = applyClustering(croppedCloud);
 
-    // TODO: publish vector of centroids
+    // Publish vector of centroids
+    // Set timestamp and set frame ID (should match your TF frame)
+    geometry_msgs::msg::PoseArray centroidArrayMsg;
+    centroidArrayMsg.header.stamp = this->now();
+    centroidArrayMsg.header.frame_id = "lidar_frame";
+
+    for (const auto& centroid : cluster_centroids) {
+        geometry_msgs::msg::Pose pose;
+        pose.position.x = centroid[0];
+        pose.position.y = centroid[1];
+        pose.position.z = centroid[2];
+
+        // Set a neutral quaternion for orientation (you can ignore this later)
+        // No rotation (neutral quaternion)
+        pose.orientation.w = 1.0;
+
+        centroidArrayMsg.poses.push_back(pose);
+    }
+
+    // Publish the centroid array
+    centroid_publisher_->publish(centroidArrayMsg);
 }
 
 
@@ -120,9 +141,9 @@ void ClusteringNode::readLidarScan(const sensor_msgs::msg::LaserScan::SharedPtr 
     }
 
     // Fills additional point cloud information (not needed for the project)
-    outputPC->width = outputPC->points.size();    // Unit measure: [Point]
-    outputPC->height = 1;                         // Unit measure: [Point]
-    outputPC->is_dense = true;                    // No points are invalid
+    outputPC->width = outputPC->points.size();
+    outputPC->height = 1;
+    outputPC->is_dense = true;
 }
 
 
@@ -130,8 +151,6 @@ void ClusteringNode::reduceDensityPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputP
 {
     // Sets the input cloud pointer
     voxelGrid_.setInputCloud(inputPC);
-
-    // Sets the leaf size to create the grid -> already made in constructor
 
     // Apply Voxel filtering
     voxelGrid_.filter(*outputPC);
@@ -176,14 +195,14 @@ std::vector<Eigen::Vector4f> ClusteringNode::applyClustering(pcl::PointCloud<pcl
     std::vector<pcl::PointIndices> clusterIndices;
     euclideanClustering_.extract(clusterIndices);
 
-    // vector to store centroids
+    // Vector to store centroids
     std::vector<Eigen::Vector4f> centroids;
 
     // For each cluster, extracts the points and creates a new point cloud
     for (const auto& currIndices : clusterIndices) {
         Eigen::Vector4f centroid;
-        // we need to obtain an iterator on the points of a specific cluster
-        // there is a handy class: pcl::CloudIterator
+        // We need to obtain an iterator on the points of a specific cluster
+        // There is a handy class: pcl::CloudIterator
         auto pcConstIter = pcl::ConstCloudIterator<pcl::PointXYZ>(*inputPC, currIndices);
         
         // Computes the current cluster centroid

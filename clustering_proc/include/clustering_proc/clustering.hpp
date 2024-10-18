@@ -14,13 +14,13 @@
 
 
 /**
- * @class 			ClusteringNode
- * @brief 			ROS2 node that performs point cloud clustering using a 2D Lidar scan.
+ * @class	ClusteringNode
+ * @brief 	ROS2 node that performs point cloud clustering using a 2D Lidar scan.
  * 
- * @details  		node subscribes to a Lidar scan topic,
- * 					converts it into a 3D point cloud,
- * 					and processes it using downsampling, cropping,
- * 					and clustering techniques to detect objects in the scan.
+ * @details	node subscribes to a Lidar scan topic,
+ * 			converts it into a 3D point cloud,
+ * 			and processes it using downsampling, cropping,
+ * 			and clustering techniques to detect objects in the scan.
  */
 class ClusteringNode : public rclcpp::Node
 {
