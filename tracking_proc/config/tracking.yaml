@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    target_location_topic: /target_loc
+    cluster_centroids_topic: /cluster_centroids
+    use_sim_time: false
