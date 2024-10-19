@@ -10,23 +10,25 @@ Tracker::Tracker(): Node("tracking_module") {
 
 	// Gets all potential parameters
 	this->declare_parameter("target_location_topic", "/target_loc");
+	
+	this->declare_parameter("cluster_centroids_topic", "/cluster_centroids");
 
-	// Defines quality of service: all messages that you want to receive must have the same
-	rclcpp::QoS custom_qos_profile = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default))
-	.history(rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST)
-	.keep_last(10)
-	.reliability(rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
-	.durability(rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE)
-	.avoid_ros_namespace_conventions(false);
 
 	// Subscribes to target topic
 	subTargetLoc_.subscribe(this, target_location_topic, custom_qos_profile.get_rmw_qos_profile());
 
+	// Subscribes to the clustering topic
+	subClusterCentroids_.subscribe(this, cluster_centroids_topic, custom_qos_profile.get_rmw_qos_profile());
+
+	// create publisher for target location point
+	pub_ = this->create_publisher<geometry_msgs::msg::Point>("/tracked_obj_loc", 10);
 }
 
 
 void Tracker::target_callback(const ) {
-	currAlpha_ = stereo_msg;
+	RCLCPP_INFO(this->get_logger(), "Received target location from aruco_loc node.");
+
+	currAlpha_ = pointToEigen(stereo_msg);
 
 	if () {
 		return;
@@ -37,6 +39,8 @@ void Tracker::target_callback(const ) {
 
 
 void Tracker::centroids_callback(const) {
+	RCLCPP_INFO(this->get_logger(), "Received clusters centroids from clustering node.");
+
 	centroids_ = cluster_msg;
 
 	if () {
@@ -76,6 +80,16 @@ void Tracker::trackerCore() {
 
 Eigen::Vector3d Tracker::selectCentroid() {
 
+}
+
+
+
+Eigen::VectorXd pointToEigen(const geometry_msgs::msg::Point& point) {
+    // Creates an Eigen::VectorXd of size 3
+    Eigen::VectorXd vec(3);
+	vec << point.x, point.y, point.z;
+
+    return vec;
 }
 
 

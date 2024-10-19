@@ -77,7 +77,14 @@ private:
      */
     Eigen::VectorXd pointToEigen(const geometry_msgs::msg::Point& point);
 
+    /**
+     * @brief 
+     * 
+     * @param centroids 
+     * @return Eigen::MatrixXd 
+     */
     Eigen::MatrixXd poseArrayToEigen(const geometry_msgs::msg::PoseArray& centroids);
+
 
     rclcpp::Subscription<geometry_msgs::msg::Point> subTargetLoc_;
 
