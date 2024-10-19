@@ -52,9 +52,21 @@ public:
      * 
      * @brief       Set the initial state of the tracked object.
      * 
+     * @details     Only the position of the tracked object is known, thus
+     *              the state vector is initialized with velocity equals to 0.
+     *
      * @param[in]   s Tracked object initial position (x, y, z).
      */
     void setState(const Eigen::VectorXd &s);
+
+    /**
+     * @brief   Gets the state of the tracked object.
+     * 
+     * @details Only the position of the tracked object is required.
+     *
+     * @return  Eigen::VectorXd Position of the tracked object.
+     */
+    Eigen::VectorXd getState();
 
     /**
      * @fn          updateMatrices
@@ -80,6 +92,9 @@ private:
     Eigen::MatrixXd H_;     /**< Measurement matrix.*/
 
     Eigen::MatrixXd R_;     /**< Measurement covariance matrix.*/
+
+    double noiseAx_;
+    double noiseAy_; 
 };
 
 #endif  // KALMAN_FILTER_HPP_

@@ -47,8 +47,8 @@ KalmanFilter::KalmanFilter() {
     Q_ = Eigen::MatrixXd::Zero(6, 6);
 
     // Sets the acceleration noise components (no movements assumed on the Z-axis)
-    double noise_ax_ = 2.;
-    double noise_ay_ = 2.;
+    noiseAx_ = 2.;
+    noiseAy_ = 2.;
 }
 
 
@@ -90,24 +90,32 @@ void KalmanFilter::setState(const Eigen::VectorXd &s) {
 }
 
 
+Eigen::VectorXd KalmanFilter::getState() {
+    Eigen::VectorXd s = Eigen::VectorXd(3);
+    s << x_[0], x_[1], x_[2];
+
+    return s;
+}
+
+
 void KalmanFilter::updateMatrices(double dt) {
-    double dt_2 = dt_ * dt_;
-    double dt_3 = dt_2 * dt_;
-    double dt_4 = dt_3 * dt_;
+    double dt_2 = dt * dt;
+    double dt_3 = dt_2 * dt;
+    double dt_4 = dt_3 * dt;
 
     // Updates the update matrix
-    F_ << 1., 0., 0., dt_, 0., 0.,
-          0., 1., 0., 0., dt_, 0.,
-          0., 0., 1., 0., 0., dt_,
+    F_ << 1., 0., 0., dt, 0., 0.,
+          0., 1., 0., 0., dt, 0.,
+          0., 0., 1., 0., 0., dt,
           0., 0., 0., 1., 0., 0.,
           0., 0., 0., 0., 1., 0.,
           0., 0., 0., 0., 0., 1.;
 
     // Updates the process covariance matrix
-    Q_ << dt_4 / 4. * noise_ax_, 0., 0., dt_3 / 2. * noise_ax_, 0., 0.,
-        0., dt_4 / 4. * noise_ay_, 0., 0., dt_3 / 2. * noise_ay_, 0.,
+    Q_ << dt_4 / 4. * noiseAx_, 0., 0., dt_3 / 2. * noiseAx_, 0., 0.,
+        0., dt_4 / 4. * noiseAy_, 0., 0., dt_3 / 2. * noiseAy_, 0.,
         0., 0., 0., 0., 0., 0.,
-        dt_3 / 2. * noise_ax_, 0., 0., dt_2 * noise_ax_, 0., 0.,
-        0., dt_3 / 2. * noise_ay_, 0., 0., dt_2 * noise_ay_, 0.,
+        dt_3 / 2. * noiseAx_, 0., 0., dt_2 * noiseAx_, 0., 0.,
+        0., dt_3 / 2. * noiseAy_, 0., 0., dt_2 * noiseAy_, 0.,
         0., 0., 0., 0., 0., 0.;
 }
