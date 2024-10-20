@@ -10,6 +10,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
 #include <vector>
 
 
@@ -111,7 +112,8 @@ private:
     pcl::CropBox<pcl::PointXYZ> cropBox_;                                   /**< CropBox filter for limiting the point cloud to a region of interest. */
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> euclideanClustering_;    /**< Euclidean Clustering object for detecting point cloud clusters. */
 
-	rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr lidar_scan_subscription_; /**< Subscriber for lidar scan messages. */
+	rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr lidar_scan_subscription_; 	/**< Subscriber for lidar scan messages. */
+	rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr centroid_publisher_; 		/**< Publisher for computed cluster centroids. */
 	
 	std::vector<double> voxelConf_;      	/**< VoxelGrid leaf sizes for downsampling in X, Y, and Z axes. */
     Eigen::Vector4f cb_minPoint_;         	/**< Minimum point for the CropBox filter. */

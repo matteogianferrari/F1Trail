@@ -2,23 +2,23 @@
 #include <pcl/common/centroid.h>
 #include <pcl/common/common.h>
 #include <limits>
+#include <string>
 
 
 
 ClusteringNode::ClusteringNode() : Node("clustering_node") {
+    // parameter for lidar scan topic
+    this->declare_parameter<std::string>("scan_topic", "/scan");
     // Gets all potential parameters
     // Voxel Conf
     // Maybe change the default to {0.05, 0.05, 0.f}
-    this->declare_parameter<std::vector<double>>("voxel", {0.,0.,0.});
+    this->declare_parameter<std::vector<double>>("voxel", {0.05, 0.05, 0.0});
 	voxelConf_ = this->get_parameter("voxel").get_value<std::vector<double>>();
     
     // Throw exception if the array has not exaclty 3 entries
     if (voxelConf_.size() != 3) {
         throw std::runtime_error("Parameter 'voxel' must contain exactly 3 entries.");
     }
-
-    // Set up VoxelGrid filter parameters
-    voxelGrid_.setLeafSize(voxelConf_[0], voxelConf_[1], voxelConf_[2]);
 
 
     // CropBox Conf
@@ -52,8 +52,11 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
     this->declare_parameter<double>("ec_tollerance", 0.35);
 
     // retrieve bound values for cluster size
-    minClusterSize_ = this->get_parameter("max_cluster_size").get_value<int64_t>();
-    maxClusterSize_ = this->get_parameter("min_cluster_size").get_value<int64_t>();
+    minClusterSize_ = static_cast<size_t>(this->get_parameter("min_cluster_size").get_value<int64_t>());
+    maxClusterSize_ = static_cast<size_t>(this->get_parameter("max_cluster_size").get_value<int64_t>());
+    if (maxClusterSize_ <= minClusterSize_) {
+        throw std::runtime_error("Parameter 'max_cluster_size' must be greater than 'min_cluster_size'.");
+    }
     
     // Retrieve the tolerance parameter
     ecTolerance_ = this->get_parameter("ec_tollerance").as_double();
@@ -67,16 +70,17 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
 	.avoid_ros_namespace_conventions(false);
 
     // Create publisher for a vector of centroids
-    centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/cluster_centroids", 10);
+    centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/cluster_centroids", custom_qos_profile);
 
-    // Create subscription to LaserScan data instead of PointCloud2
+    // Create subscription to LaserScan data
+    auto scan_topic = this->get_parameter("scan_topic").get_value<std::string>();
     lidar_scan_subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "/lidar_scan", custom_qos_profile, std::bind(&ClusteringNode::laserScanCallback, this, std::placeholders::_1));
+        scan_topic, custom_qos_profile, std::bind(&ClusteringNode::laserScanCallback, this, std::placeholders::_1));
 }
 
 
 void ClusteringNode::laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "Received a LaserScan message");
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Received a LaserScan message");
 
     // Convert the LaserScan into a PointCloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr inputCloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -96,7 +100,7 @@ void ClusteringNode::laserScanCallback(const sensor_msgs::msg::LaserScan::Shared
     // Set timestamp and set frame ID (should match your TF frame)
     geometry_msgs::msg::PoseArray centroidArrayMsg;
     centroidArrayMsg.header.stamp = this->now();
-    centroidArrayMsg.header.frame_id = "lidar_frame";
+    centroidArrayMsg.header.frame_id = "lidar_link";
 
     for (const auto& centroid : cluster_centroids) {
         geometry_msgs::msg::Pose pose;
@@ -151,7 +155,8 @@ void ClusteringNode::reduceDensityPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputP
 {
     // Sets the input cloud pointer
     voxelGrid_.setInputCloud(inputPC);
-
+    // Set up VoxelGrid filter parameters
+    voxelGrid_.setLeafSize(voxelConf_[0], voxelConf_[1], voxelConf_[2]);
     // Apply Voxel filtering
     voxelGrid_.filter(*outputPC);
 }
@@ -194,6 +199,7 @@ std::vector<Eigen::Vector4f> ClusteringNode::applyClustering(pcl::PointCloud<pcl
     // Performs Euclidean clustering
     std::vector<pcl::PointIndices> clusterIndices;
     euclideanClustering_.extract(clusterIndices);
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %d clusters.", clusterIndices.size());
 
     // Vector to store centroids
     std::vector<Eigen::Vector4f> centroids;
