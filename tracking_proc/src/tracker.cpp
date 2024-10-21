@@ -1,4 +1,5 @@
 #include "tracker.hpp"
+#include <string>
 
 
 // Used for parameter binding in callbacks to be registered with subscribers.
@@ -10,9 +11,11 @@ TrackerNode::TrackerNode(): Node("tracking_module") {
 
     // Gets all potential parameters
     this->declare_parameter("target_location_topic", "/target_loc");
+    std::string target_location_topic = this->get_parameter("target_location_topic").as_string();
     
     this->declare_parameter("cluster_centroids_topic", "/cluster_centroids");
-
+    std::string cluster_centroids_topic = this->get_parameter("cluster_centroids_topic").as_string();
+    
 
     // Subscribes to target topic
     subTargetLoc_.subscribe(this, target_location_topic, custom_qos_profile.get_rmw_qos_profile());
