@@ -12,7 +12,7 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
     // Gets all potential parameters
     // Voxel Conf
     this->declare_parameter<std::vector<double>>("voxel", {0.05, 0.05, 0.0});
-	voxelConf_ = this->get_parameter("voxel").get_value<std::vector<double>>();
+    voxelConf_ = this->get_parameter("voxel").get_value<std::vector<double>>();
     
     // Throw exception if the array has not exaclty 3 entries
     if (voxelConf_.size() != 3) {
@@ -58,12 +58,12 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
     ecTolerance_ = this->get_parameter("ec_tollerance").as_double();
 
     // Defines quality of service: all messages that you want to receive must have the same
-	rclcpp::QoS custom_qos_profile = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default))
-	.history(rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST)
-	.keep_last(10)
-	.reliability(rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
-	.durability(rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE)
-	.avoid_ros_namespace_conventions(false);
+    rclcpp::QoS custom_qos_profile = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default))
+    .history(rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST)
+    .keep_last(10)
+    .reliability(rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+    .durability(rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE)
+    .avoid_ros_namespace_conventions(false);
 
     // Create publisher for a vector of centroids
     centroid_publisher_ = this->create_publisher<geometry_msgs::msg::PoseArray>("/cluster_centroids", custom_qos_profile);
@@ -218,11 +218,11 @@ std::vector<Eigen::Vector4f> ClusteringNode::applyClustering(pcl::PointCloud<pcl
 
 
 int main(int argc, char ** argv) {
-	rclcpp::init(argc, argv);
+    rclcpp::init(argc, argv);
 
-	auto node = std::make_shared<ClusteringNode>();
-	rclcpp::spin(node);
-	rclcpp::shutdown();
-	
-	return 0;
+    auto node = std::make_shared<ClusteringNode>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
+
+    return 0;
 }
