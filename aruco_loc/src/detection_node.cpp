@@ -48,7 +48,7 @@ ImageDetectionNode::ImageDetectionNode() : Node("detection_node") {
 	sync_exact_->registerCallback(Func);
 
 	// create publisher for target location point
-	pub_ = this->create_publisher<geometry_msgs::msg::Point>("/target_loc", 10);
+	pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/target_loc", 10);
 	
 	// Selects dict of markers to use
 	cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(aruco_dict_);
@@ -91,12 +91,17 @@ void ImageDetectionNode::stereo_target_detect(cv_bridge::CvImageConstPtr left_im
 		cv::Point2f left_center = target_center(left_markerCorners[std::distance(left_markerIds.begin(), left_mark_it)]);
 		cv::Point2f right_center = target_center(right_markerCorners[std::distance(right_markerIds.begin(), right_mark_it)]);
 		
-		geometry_msgs::msg::Point pt_msg;
-		pt_msg.x = left_center.x;
-		pt_msg.y = left_center.y;
+		geometry_msgs::msg::PointStamped pt_msg;
+		pt_msg.point.x = left_center.x;
+		pt_msg.point.y = left_center.y;
 		
 		// Depth computation assumes no rotation (otherwise epipolar geometry is needed)
-		pt_msg.z = B*f / (std::abs(left_center.x - right_center.x));
+		pt_msg.point.z = B*f / (std::abs(left_center.x - right_center.x));
+
+		// Set point header
+		pt_msg.header.stamp = this->now();
+		pt_msg.header.frame_id = "camera_link";
+		
 		RCLCPP_INFO(this->get_logger(), "Marker location found!");
 		pub_->publish(pt_msg);
 	}

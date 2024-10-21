@@ -11,7 +11,7 @@
 #define DETECTION_NODE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "std_msgs/msg/header.hpp"
 #include <cv_bridge/cv_bridge.h>
@@ -91,7 +91,7 @@ private:
 	 * @brief	Synchronizes left and right image topics based on exact matching of timestamps.
 	 */
 	std::shared_ptr<message_filters::TimeSynchronizer<sensor_msgs::msg::Image,sensor_msgs::msg::Image>> sync_exact_;
-	rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;			/**< Publisher of detected target location.*/
+	rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_;	/**< Publisher of detected target location.*/
 	message_filters::Subscriber<sensor_msgs::msg::Image> sub_right_img_;	/**< Receives the right image stream.*/
 	message_filters::Subscriber<sensor_msgs::msg::Image> sub_left_img_;		/**< Receives the left image stream.*/
 	
