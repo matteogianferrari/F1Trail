@@ -22,18 +22,23 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package (Eigen3 REQUIRED NO_MODULE)
+find_package(Eigen3 REQUIRED NO_MODULE)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
-add_executable(tracking src/tracker.cpp)
+add_executable(tracking src/tracker.cpp src/kalman_filter.cpp)
 target_include_directories(tracking PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
 include_directories(include/tracking_proc)
 
-target_link_libraries(tracking ${PCL_LIBRARIES} Eigen3::Eigen)
+target_link_libraries(tracking ${PCL_LIBRARIES} Eigen3::Eigen tf2_ros::tf2_ros)
 
-ament_target_dependencies(split_stereo rclcpp sensor_msgs Eigen3)
+ament_target_dependencies(tracking rclcpp sensor_msgs Eigen3 geometry_msgs tf2 tf2_ros tf2_msgs tf2_geometry_msgs)
 
 install(TARGETS tracking
   DESTINATION lib/${PROJECT_NAME})

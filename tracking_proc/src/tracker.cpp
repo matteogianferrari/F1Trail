@@ -1,5 +1,7 @@
 #include "tracker.hpp"
 #include <string>
+// needed for tf2 library transforms
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 
 
 // Used for parameter binding in callbacks to be registered with subscribers.
@@ -24,8 +26,12 @@ TrackerNode::TrackerNode(): Node("tracking_module") {
     .durability(rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE)
     .avoid_ros_namespace_conventions(false);
     
+    // create transform buffer and listener
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
     // Subscribes to target topic
-    subTargetLoc_ = this->create_subscription<geometry_msgs::msg::Point>(
+    subTargetLoc_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
         target_location_topic, custom_qos_profile, std::bind(&TrackerNode::target_callback, this, std::placeholders::_1));
 
     // Subscribes to the clustering topic
@@ -34,55 +40,76 @@ TrackerNode::TrackerNode(): Node("tracking_module") {
 
     // create publisher for target location point
     pub_ = this->create_publisher<geometry_msgs::msg::Point>("/tracked_obj_loc", custom_qos_profile);
+
+    // set initial time to compute delta
+    previousTime_ = this->now();
 }
 
 
-void TrackerNode::target_callback(const geometry_msgs::msg::Point::SharedPtr stereo_msg) {
-    RCLCPP_INFO(this->get_logger(), "Received target location from aruco_loc node.");
+void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::SharedPtr stereo_msg) {
+    RCLCPP_INFO(this->get_logger(), "Received target location from camera tracking node.");
 
+    // perform frame transform on incoming data
+    geometry_msgs::msg::PointStamped tf_stereo_msg;
+    try {
+        tf_stereo_msg = tf_buffer_->transform(*stereo_msg, "base_link");
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_INFO(
+        this->get_logger(), "Could not transform %s to %s: %s",
+        "base_link", stereo_msg->header.frame_id.c_str(), ex.what());
+        return;
+    }
     // Stores the target location received from the Aruco node
-    currAlpha_ = pointToEigen(stereo_msg);
+    currAlpha_ = pointToEigen(tf_stereo_msg);
 
-    // Print the target location (assuming currAlpha_ is an Eigen vector)
-    RCLCPP_INFO(this->get_logger(), "Target Location: [x: %f, y: %f, z: %f]", 
-                currAlpha_[0], currAlpha_[1], currAlpha_[2]);
-
-    // Edge case: No centroids have been received yet
-    // if (centroids_.empty()) {
-    //     RCLCPP_WARN(this->get_logger(), "No centroids available yet.");
-    //     return;
-    // }
-
+    // Edge case: No target location has been received yet
+    if (currAlpha_.size() == 0) {
+        RCLCPP_WARN(this->get_logger(), "No target location received yet.");
+        return;
+    }
+    
+    
     // Tracks the object
-    // trackerCore();
+    trackerCore(tf_stereo_msg.header.stamp);
 }
 
 
 void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::SharedPtr cluster_msg) {
     RCLCPP_INFO(this->get_logger(), "Received clusters centroids from clustering node.");
 
-    // Stores the centroids received from the Clustering node
-    centroids_ = poseArrayToEigen(cluster_msg);
-
-    // Print the centroids (assuming centroids_ is a vector of Eigen vectors)
-    RCLCPP_INFO(this->get_logger(), "Centroids:");
-    for (size_t i = 0; i < centroids_.size(); ++i) {
-        RCLCPP_INFO(this->get_logger(), "Centroid %zu: [x: %f, y: %f, z: %f]", 
-                    i, centroids_[i][0], centroids_[i][1], centroids_[i][2]);
+    // perform frame transform on incoming data. ros at its best here.
+    geometry_msgs::msg::PoseArray tf_cluster_msg;
+    try {
+        // either we do this, or we implement a conversion following tf2 templates between Pose and PoseStamped
+        geometry_msgs::msg::PoseStamped out;
+        for (const auto& pose: cluster_msg->poses) {
+            geometry_msgs::msg::PoseStamped ps;
+            ps.header = cluster_msg->header;
+            ps.pose = pose;
+            tf_cluster_msg.poses.push_back(tf_buffer_->transform(ps, out, "base_link").pose);
+        }
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_INFO(
+        this->get_logger(), "Could not transform %s to %s: %s",
+        "base_link", cluster_msg->header.frame_id.c_str(), ex.what());
+        return;
     }
 
-    // Edge case: No target location has been received yet
-    // if (currAlpha_.size() == 0) {
-    //     RCLCPP_WARN(this->get_logger(), "No target location received yet.");
-    //     return;
-    // }
+    // Stores the centroids received from the Clustering node
+    centroids_ = poseArrayToEigen(tf_cluster_msg);
 
+    // Edge case: No centroids have been received yet
+    if (centroids_.empty()) {
+        RCLCPP_WARN(this->get_logger(), "No centroids available yet.");
+        return;
+    }
+    
     // Tracks the object
-    // trackerCore();
+    trackerCore(tf_cluster_msg.header.stamp);
 }
 
 
-void TrackerNode::trackerCore() {
+void TrackerNode::trackerCore(const rclcpp::Time& timestamp) {
     // Applies sensor fusion between lidar and stereo camera
     // Selects the centroid that minimizes the distance w.r.t. the target location currAlpha
     beta_ = selectCentroid();
@@ -92,8 +119,9 @@ void TrackerNode::trackerCore() {
         kalman_.setState(beta_);
     }
 
-    dt = ;
-    kalman_.updateMatrices(dt);
+    rclcpp::Duration dt = timestamp - previousTime_;
+    previousTime_ = timestamp;
+    kalman_.updateMatrices(dt.seconds());
 
     // Estimates the future state of the tracked object
     kalman_.predict();
@@ -106,6 +134,15 @@ void TrackerNode::trackerCore() {
     currAlpha_ = betaPred_;
 
     // Publish the position of the tracked object
+    // transform eigen to Point
+    geometry_msgs::msg::Point tracked;
+    tracked.x = betaPred_[0];
+    tracked.y = betaPred_[1];
+    tracked.z = betaPred_[2];
+
+    RCLCPP_INFO(this->get_logger(), "Target Location: [x: %f, y: %f, z: %f]", 
+                 betaPred_[0], betaPred_[1], betaPred_[2]);
+    pub_->publish(tracked);
 }
 
 
@@ -135,10 +172,10 @@ Eigen::Vector3d TrackerNode::selectCentroid() {
 }
 
 
-Eigen::VectorXd TrackerNode::pointToEigen(const geometry_msgs::msg::Point& point) {
+Eigen::VectorXd TrackerNode::pointToEigen(const geometry_msgs::msg::PointStamped& pt) {
     // Creates an Eigen::VectorXd of size 3
     Eigen::VectorXd vec(3);
-    vec << point.x, point.y, point.z;
+    vec << pt.point.x, pt.point.y, pt.point.z;
 
     return vec;
 }

@@ -11,12 +11,17 @@
 #define TRACKER_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "geometry_msgs/msg/point.hpp"
-#include "geometry_msgs/msg/pose"
+#include "geometry_msgs/msg/point_stamped.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
+#include "tf2/exceptions.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include <eigen3/Eigen/Dense>
 
 #include "kalman_filter.hpp"
 #include <vector>
+#include <memory>
 
 /**
  * @class   TrackerNode 
@@ -45,7 +50,7 @@ private:
      *
      * @param[in]
      */
-    void target_callback(const geometry_msgs::msg::Point::SharedPtr stereo_msg);
+    void target_callback(const geometry_msgs::msg::PointStamped::SharedPtr stereo_msg);
 
     /**
      * @fn          centroids_callback
@@ -62,13 +67,13 @@ private:
      * @brief Construct a new tracker Core object
      * 
      */
-    void trackerCore();
+    void trackerCore(const rclcpp::Time& timestamp);
 
     /**
      * @brief Construct a new select Centroid object
      * 
      */
-    selectCentroid();
+    Eigen::Vector3d selectCentroid();
 
     /**
      * @brief 
@@ -76,7 +81,7 @@ private:
      * @param point 
      * @return Eigen::VectorXd 
      */
-    Eigen::VectorXd pointToEigen(const geometry_msgs::msg::Point& point);
+    Eigen::VectorXd pointToEigen(const geometry_msgs::msg::PointStamped& point);
 
     /**
      * @brief 
@@ -87,9 +92,9 @@ private:
     std::vector<Eigen::VectorXd> poseArrayToEigen(const geometry_msgs::msg::PoseArray& centroids);
 
 
-    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr subTargetLoc_;  /**< Subscription for target location.*/
+    rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subTargetLoc_;  /**< Subscription for target location (LaserScan message). */
     
-    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subClusterCentroids_;  /**< Subscription for cluster centroids.*/
+    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subClusterCentroids_;  /**< Subscription for cluster centroids. */
 
     rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;           /**< Publisher of detected target location.*/
 
@@ -101,7 +106,10 @@ private:
     Eigen::VectorXd beta_;                      /**< */
     Eigen::VectorXd betaPred_;                  /**< */
     
-    std::vector<Eigen::VectorXd> centroids_;   /**< */
-}
+    std::vector<Eigen::VectorXd> centroids_;    /**< */
+    rclcpp::Time previousTime_;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};                 /**< Buffer to get available static transforms */
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};   /**< Transform listener */
+};
 
 #endif  // TRACKER_HPP_
