@@ -16,24 +16,26 @@
 #include <eigen3/Eigen/Dense>
 
 #include "kalman_filter.hpp"
+#include <vector>
 
 /**
- * @class   Tracker 
+ * @class   TrackerNode 
  * 
  * @brief   Node for tracking an object and estimating its future state.
  * 
  * @details  
  */
-class Tracker : public rclcpp::Node
+class TrackerNode : public rclcpp::Node
 {
 public:
     /**
-     * @fn      Tracker
+     * @fn      TrackerNode
      * 
-     * @brief   Construct a new Tracker object.
+     * @brief   Construct a new TrackerNode object.
      */
-    Tracker();
+    TrackerNode();
 
+private:
     /**
      * @fn          target_callback
      * 
@@ -43,7 +45,7 @@ public:
      *
      * @param[in]
      */
-    void target_callback(const ensor_msgs::msg::LaserScan::SharedPtr stereo_msg);
+    void target_callback(const geometry_msgs::msg::Point::SharedPtr stereo_msg);
 
     /**
      * @fn          centroids_callback
@@ -56,7 +58,6 @@ public:
      */
     void centroids_callback(const geometry_msgs::msg::PoseArray::SharedPtr cluster_msg);
     
-private:
     /**
      * @brief Construct a new tracker Core object
      * 
@@ -81,16 +82,16 @@ private:
      * @brief 
      * 
      * @param centroids 
-     * @return Eigen::MatrixXd 
+     * @return 
      */
-    Eigen::MatrixXd poseArrayToEigen(const geometry_msgs::msg::PoseArray& centroids);
+    std::vector<Eigen::VectorXd> poseArrayToEigen(const geometry_msgs::msg::PoseArray& centroids);
 
 
-    rclcpp::Subscription<geometry_msgs::msg::Point> subTargetLoc_;
+    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr subTargetLoc_;  /**< Subscription for target location (LaserScan message). */
+    
+    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subClusterCentroids_;  /**< Subscription for cluster centroids. */
 
-    rclcpp::Subscription<geometry_msgs::msg::PoseArray> subClusterCentroids_;
-
-    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;			/**< Publisher of detected target location.*/
+    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;           /**< Publisher of detected target location.*/
 
     KalmanFilter kalman_;                       /**< */
     
@@ -100,7 +101,7 @@ private:
     Eigen::VectorXd beta_;                      /**< */
     Eigen::VectorXd betaPred_;                  /**< */
     
-    Eigen::MatrixXd centroids_;   /**< */
+    std::vector<Eigen::VectorXd> centroids_;   /**< */
 }
 
 #endif  // TRACKER_HPP_

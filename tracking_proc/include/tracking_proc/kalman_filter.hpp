@@ -93,8 +93,8 @@ private:
 
     Eigen::MatrixXd R_;     /**< Measurement covariance matrix.*/
 
-    double noiseAx_;
-    double noiseAy_; 
+    double noiseAx_;    /** Acceleration noise component for the X axis.*/
+    double noiseAy_;    /** Acceleration noise component for the Y axis.*/
 };
 
 #endif  // KALMAN_FILTER_HPP_
