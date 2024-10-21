@@ -87,9 +87,9 @@ private:
     std::vector<Eigen::VectorXd> poseArrayToEigen(const geometry_msgs::msg::PoseArray& centroids);
 
 
-    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr subTargetLoc_;  /**< Subscription for target location (LaserScan message). */
+    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr subTargetLoc_;  /**< Subscription for target location.*/
     
-    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subClusterCentroids_;  /**< Subscription for cluster centroids. */
+    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subClusterCentroids_;  /**< Subscription for cluster centroids.*/
 
     rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;           /**< Publisher of detected target location.*/
 

@@ -48,7 +48,8 @@ void TrackerNode::target_callback(const geometry_msgs::msg::Point::SharedPtr ste
                 currAlpha_[0], currAlpha_[1], currAlpha_[2]);
 
     // Edge case: No centroids have been received yet
-    // if () {
+    // if (centroids_.empty()) {
+    //     RCLCPP_WARN(this->get_logger(), "No centroids available yet.");
     //     return;
     // }
 
@@ -71,7 +72,8 @@ void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::Shared
     }
 
     // Edge case: No target location has been received yet
-    // if () {
+    // if (currAlpha_.size() == 0) {
+    //     RCLCPP_WARN(this->get_logger(), "No target location received yet.");
     //     return;
     // }
 
@@ -108,7 +110,28 @@ void TrackerNode::trackerCore() {
 
 
 Eigen::Vector3d TrackerNode::selectCentroid() {
+    // Initialize variables to keep track of the closest centroid and minimum distance
+    double minDistance = std::numeric_limits<double>::max(); 
+    Eigen::Vector3d closestCentroid = Eigen::Vector3d::Zero();
 
+    // Iterate over all centroids and calculate the distance to the target location
+    for (const auto& centroid : centroids_) {
+        // Calculate Euclidean distance between the current centroid and the target location
+        double distance = (centroid - currAlpha_).norm();
+
+        // If the distance is smaller than the current minimum, update the closest centroid
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestCentroid = centroid;
+        }
+    }
+
+    // Log the closest centroid and the minimum distance for debugging purposes
+    RCLCPP_INFO(this->get_logger(), "Closest centroid found with distance: %f", minDistance);
+    RCLCPP_INFO(this->get_logger(), "Closest Centroid: [x: %f, y: %f, z: %f]", 
+                closestCentroid[0], closestCentroid[1], closestCentroid[2]);
+
+    return closestCentroid;
 }
 
 
