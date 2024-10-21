@@ -5,13 +5,12 @@
 #include <string>
 
 
-
 ClusteringNode::ClusteringNode() : Node("clustering_node") {
-    // parameter for lidar scan topic
+    // Parameter for lidar scan topic
     this->declare_parameter<std::string>("scan_topic", "/scan");
+
     // Gets all potential parameters
     // Voxel Conf
-    // Maybe change the default to {0.05, 0.05, 0.f}
     this->declare_parameter<std::vector<double>>("voxel", {0.05, 0.05, 0.0});
 	voxelConf_ = this->get_parameter("voxel").get_value<std::vector<double>>();
     
@@ -19,7 +18,6 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
     if (voxelConf_.size() != 3) {
         throw std::runtime_error("Parameter 'voxel' must contain exactly 3 entries.");
     }
-
 
     // CropBox Conf
     this->declare_parameter<std::vector<double>>("crop_box_min", {0., -3., 0., 1.});
@@ -40,10 +38,8 @@ ClusteringNode::ClusteringNode() : Node("clustering_node") {
                              static_cast<float>(minPointParam[2]), static_cast<float>(minPointParam[3]));
     Eigen::Vector4f maxPoint(static_cast<float>(maxPointParam[0]), static_cast<float>(maxPointParam[1]),
                              static_cast<float>(maxPointParam[2]), static_cast<float>(maxPointParam[3]));
-    // Set cropbox parameters
     cb_minPoint_ = minPoint;
     cb_maxPoint_ = maxPoint;
-
 
     // Clustering Conf
     // Declare clustering configuration parameters
@@ -155,8 +151,10 @@ void ClusteringNode::reduceDensityPC(pcl::PointCloud<pcl::PointXYZ>::Ptr& inputP
 {
     // Sets the input cloud pointer
     voxelGrid_.setInputCloud(inputPC);
+
     // Set up VoxelGrid filter parameters
     voxelGrid_.setLeafSize(voxelConf_[0], voxelConf_[1], voxelConf_[2]);
+
     // Apply Voxel filtering
     voxelGrid_.filter(*outputPC);
 }
@@ -217,6 +215,7 @@ std::vector<Eigen::Vector4f> ClusteringNode::applyClustering(pcl::PointCloud<pcl
     }
     return centroids;
 }
+
 
 int main(int argc, char ** argv) {
 	rclcpp::init(argc, argv);
