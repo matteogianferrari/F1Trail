@@ -23,6 +23,13 @@ ImageDetectionNode::ImageDetectionNode() : Node("detection_node") {
 	this->declare_parameter("focal_length", 699.74);
 	f = this->get_parameter("focal_length").as_double();
 
+	// Left camera coordinate centers w.r.t. image reference
+	this->declare_parameter<double>("center_x", 642.775);
+	cx = this->get_parameter("center_x").as_double();
+
+	this->declare_parameter<double>("center_y", 358.576);
+	cy = this->get_parameter("center_y").as_double();
+
 	// Parameters for aruco detector
 	this->declare_parameter("marker_idx", 16);
 	marker_idx_ = this->get_parameter("marker_idx").as_int();
@@ -92,11 +99,12 @@ void ImageDetectionNode::stereo_target_detect(cv_bridge::CvImageConstPtr left_im
 		cv::Point2f right_center = target_center(right_markerCorners[std::distance(right_markerIds.begin(), right_mark_it)]);
 		
 		geometry_msgs::msg::PointStamped pt_msg;
-		pt_msg.point.x = left_center.x;
-		pt_msg.point.y = left_center.y;
+		// transform from centimeters to meters
+		pt_msg.point.x = (left_center.x - this->cx) / 100.;
+		pt_msg.point.y = (left_center.y - this->cy) / 100.;
 		
 		// Depth computation assumes no rotation (otherwise epipolar geometry is needed)
-		pt_msg.point.z = B*f / (std::abs(left_center.x - right_center.x));
+		pt_msg.point.z = B*f / (std::abs(left_center.x - right_center.x) * 100.);
 
 		// Set point header
 		pt_msg.header.stamp = this->now();

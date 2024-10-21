@@ -105,6 +105,7 @@ private:
 	int marker_idx_;	/**< Index of ArUco marker to detect.*/
 	double B;			/**< Horizontal displacement of stereo cameras (assume no rotations).*/
     double f;			/**< Focal length.*/
+	double cx, cy;      /**< Center of left pinhole camera reference w.r.t. left image reference*/
 };
 
 #endif	// DETECTION_NODE_HPP_
