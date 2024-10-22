@@ -34,7 +34,7 @@ def generate_launch_description():
     transform_config_launch_arg = DeclareLaunchArgument(
         'transform',
         default_value='0 0 0 0 0 0',
-        description='Static transform from camera_link to base_link. Format: x y z roll pitch yaw'
+        description='Static transform from camera_link to base_link. Format: x y z (in meters) yaw pitch roll (in radians)'
     )
     return LaunchDescription([
         transform_config_launch_arg,
