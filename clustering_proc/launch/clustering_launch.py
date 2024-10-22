@@ -19,7 +19,7 @@ def setup_launch(context, *args, **kwargs):
         parameters=[config]
     )
     # transform_config argument will be returned as a string here
-    tf_args = transform_config.perform(context).split() + ['base_link', 'lidar_link']
+    tf_args = transform_config.perform(context).split() + ['lidar_link', 'base_link']
     static_transform = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -34,7 +34,7 @@ def generate_launch_description():
     transform_config_launch_arg = DeclareLaunchArgument(
         'transform',
         default_value='0 0 0 0 0 0',
-        description='Static transform from lidar_link to base_link. Format: x y z roll pitch yaw'
+        description='Static transform from lidar_link to base_link. Format: x y z (in meters) yaw pitch roll (in radians)'
     )
     return LaunchDescription([
         transform_config_launch_arg,
