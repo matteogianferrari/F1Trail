@@ -11,6 +11,8 @@ find_package(nav_msgs REQUIRED)
 # Create the longitudinal PID executabl
 add_executable(longitudinal_pid_node src/longitudinal_pid.cpp)
 
+include_directories(include/pid_controller)
+
 # Link against the required libraries
 ament_target_dependencies(longitudinal_pid_node
   rclcpp
