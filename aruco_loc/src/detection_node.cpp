@@ -55,7 +55,7 @@ ImageDetectionNode::ImageDetectionNode() : Node("detection_node") {
     sync_exact_->registerCallback(Func);
 
     // create publisher for target location point
-    pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/target_loc", 10);
+    pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/target_loc", custom_qos_profile);
     
     // Selects dict of markers to use
     cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(aruco_dict_);
