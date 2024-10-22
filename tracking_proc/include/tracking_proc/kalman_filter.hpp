@@ -64,7 +64,7 @@ public:
      * 
      * @details Only the position of the tracked object is required.
      *
-     * @return  Eigen::VectorXd Position of the tracked object.
+     * @return  Eigen::VectorXd Position of the tracked object (x, y, z).
      */
     Eigen::VectorXd getState();
 
@@ -81,20 +81,20 @@ public:
     void updateMatrices(double dt);
 
 private:
-    Eigen::VectorXd x_;     /**< State vector (x, y, z, v_x, v_y, v_z).*/
+    Eigen::VectorXd x_; /**< State vector (x, y, z, v_x, v_y, v_z).*/
 
-    Eigen::MatrixXd P_;     /**< Covariance matrix.*/
+    Eigen::MatrixXd P_; /**< Covariance matrix.*/
 
-    Eigen::MatrixXd F_;     /**< Update matrix.*/
+    Eigen::MatrixXd F_; /**< Update matrix.*/
 
-    Eigen::MatrixXd Q_;     /**< Process covariance matrix.*/
+    Eigen::MatrixXd Q_; /**< Process covariance matrix.*/
 
-    Eigen::MatrixXd H_;     /**< Measurement matrix.*/
+    Eigen::MatrixXd H_; /**< Measurement matrix.*/
 
-    Eigen::MatrixXd R_;     /**< Measurement covariance matrix.*/
+    Eigen::MatrixXd R_; /**< Measurement covariance matrix.*/
 
-    double noiseAx_;    /** Acceleration noise component for the X axis.*/
-    double noiseAy_;    /** Acceleration noise component for the Y axis.*/
+    double noiseAx_;    /**< Acceleration noise component for the X axis.*/
+    double noiseAy_;    /**< Acceleration noise component for the Y axis.*/
 };
 
 #endif  // KALMAN_FILTER_HPP_

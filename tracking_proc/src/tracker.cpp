@@ -1,7 +1,6 @@
 #include "tracker.hpp"
-#include <string>
-// needed for tf2 library transforms
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include <string>
 
 
 // Used for parameter binding in callbacks to be registered with subscribers.
@@ -10,6 +9,8 @@ using std::placeholders::_1;
 
 TrackerNode::TrackerNode(): Node("tracking_module") {
     isInitialized_ = false;
+    tf_buffer_ {nullptr};            
+    tf_listener_ {nullptr};
 
     // Gets all potential parameters
     this->declare_parameter("target_location_topic", "/target_loc");
@@ -46,81 +47,89 @@ TrackerNode::TrackerNode(): Node("tracking_module") {
 }
 
 
-void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::SharedPtr stereo_msg) {
+void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::SharedPtr target_msg) {
     RCLCPP_INFO(this->get_logger(), "Received target location from camera tracking node.");
 
-    // perform frame transform on incoming data
-    geometry_msgs::msg::PointStamped tf_stereo_msg;
+    // Performs frame transform on incoming data
+    geometry_msgs::msg::PointStamped tf_target_msg;
     try {
-        tf_stereo_msg = tf_buffer_->transform(*stereo_msg, "base_link");
+        tf_target_msg = tf_buffer_->transform(*target_msg, "base_link");
     } catch (const tf2::TransformException & ex) {
-        RCLCPP_INFO(
-        this->get_logger(), "Could not transform %s to %s: %s",
-        "base_link", stereo_msg->header.frame_id.c_str(), ex.what());
-        return;
-    }
-    // Stores the target location received from the Aruco node
-    currAlpha_ = pointToEigen(tf_stereo_msg);
+        RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s",
+                    "base_link", target_msg->header.frame_id.c_str(), ex.what());
 
-    // Edge case: No target location has been received yet
-    if (currAlpha_.size() == 0) {
-        RCLCPP_WARN(this->get_logger(), "No target location received yet.");
-        return;
-    }
-    
-    
-    // Tracks the object
-    trackerCore(tf_stereo_msg.header.stamp);
-}
-
-
-void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::SharedPtr cluster_msg) {
-    RCLCPP_INFO(this->get_logger(), "Received clusters centroids from clustering node.");
-
-    // perform frame transform on incoming data. ros at its best here.
-    geometry_msgs::msg::PoseArray tf_cluster_msg;
-    try {
-        // either we do this, or we implement a conversion following tf2 templates between Pose and PoseStamped
-        geometry_msgs::msg::PoseStamped out;
-        for (const auto& pose: cluster_msg->poses) {
-            geometry_msgs::msg::PoseStamped ps;
-            ps.header = cluster_msg->header;
-            ps.pose = pose;
-            tf_cluster_msg.poses.push_back(tf_buffer_->transform(ps, out, "base_link").pose);
-        }
-    } catch (const tf2::TransformException & ex) {
-        RCLCPP_INFO(
-        this->get_logger(), "Could not transform %s to %s: %s",
-        "base_link", cluster_msg->header.frame_id.c_str(), ex.what());
         return;
     }
 
-    // Stores the centroids received from the Clustering node
-    centroids_ = poseArrayToEigen(tf_cluster_msg);
+    // Stores the target location received from the vision node
+    currAlpha_ = pointToEigen(tf_target_msg);
 
-    // Edge case: No centroids have been received yet
+    // Edge case: No centroids have been received yet.
+    // Sensor fusion can only be applied if both target location and centroids are available.
+    // See the function details for an in-depth explanation.
     if (centroids_.empty()) {
         RCLCPP_WARN(this->get_logger(), "No centroids available yet.");
         return;
     }
     
     // Tracks the object
-    trackerCore(tf_cluster_msg.header.stamp);
+    trackerCore(tf_target_msg.header.stamp);
+}
+
+
+void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::SharedPtr clusters_msg) {
+    RCLCPP_INFO(this->get_logger(), "Received clusters centroids from clustering node.");
+
+    // Performs frame transform on incoming data (ROS at its best here)
+    geometry_msgs::msg::PoseArray tf_clusters_msg;
+    try {
+        // Either we do this, or we implement a conversion following tf2 templates between Pose and PoseStamped
+        geometry_msgs::msg::PoseStamped out;
+
+        for (const auto& pose: clusters_msg->poses) {
+            geometry_msgs::msg::PoseStamped ps;
+            ps.header = clusters_msg->header;
+            ps.pose = pose;
+            tf_clusters_msg.poses.push_back(tf_buffer_->transform(ps, out, "base_link").pose);
+        }
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s",
+                    "base_link", clusters_msg->header.frame_id.c_str(), ex.what());
+        return;
+    }
+
+    // Stores the centroids received from the clustering node
+    centroids_ = poseArrayToEigen(tf_clusters_msg);
+
+    // Edge case: No target location has been received yet.
+    // Sensor fusion can only be applied if both target location and centroids are available.
+    // See the function details for an in-depth explanation.
+    if (currAlpha_.size() == 0) {
+        RCLCPP_WARN(this->get_logger(), "No target location received yet.");
+        return;
+    }
+
+    // Tracks the object
+    trackerCore(tf_clusters_msg.header.stamp);
 }
 
 
 void TrackerNode::trackerCore(const rclcpp::Time& timestamp) {
-    // Applies sensor fusion between lidar and stereo camera
+    // Applies sensor fusion between vision and clustering nodes
     // Selects the centroid that minimizes the distance w.r.t. the target location currAlpha
-    beta_ = selectCentroid();
+    beta_ = sensorFusion();
 
+    // Checks if the kalman filter has been already initialized
     if (!isInitialized_) {
         isInitialized_ = true;
         kalman_.setState(beta_);
     }
 
+    // Computes the delta time between messages
     rclcpp::Duration dt = timestamp - previousTime_;
     previousTime_ = timestamp;
+
+    // Updates the kalman filter matrices
     kalman_.updateMatrices(dt.seconds());
 
     // Estimates the future state of the tracked object
@@ -129,44 +138,39 @@ void TrackerNode::trackerCore(const rclcpp::Time& timestamp) {
     // Updates the estimation with the measurement
     kalman_.update(beta_);
 
-    //
+    // Gets the object state (x, y, z) from kalman filter
     betaPred_ = kalman_.getState();
     currAlpha_ = betaPred_;
 
-    // Publish the position of the tracked object
-    // transform eigen to Point
+    // Transforms Eigen to Point
     geometry_msgs::msg::Point tracked;
     tracked.x = betaPred_[0];
     tracked.y = betaPred_[1];
     tracked.z = betaPred_[2];
 
     RCLCPP_INFO(this->get_logger(), "Target Location: [x: %f, y: %f, z: %f]", 
-                 betaPred_[0], betaPred_[1], betaPred_[2]);
+                betaPred_[0], betaPred_[1], betaPred_[2]);
+
+    // Publish the position of the tracked object
     pub_->publish(tracked);
 }
 
 
-Eigen::Vector3d TrackerNode::selectCentroid() {
-    // Initialize variables to keep track of the closest centroid and minimum distance
+Eigen::Vector3d TrackerNode::sensorFusion() {
+    // Initializes variables to keep track of the closest centroid and minimum distance
     double minDistance = std::numeric_limits<double>::max(); 
     Eigen::Vector3d closestCentroid = Eigen::Vector3d::Zero();
 
-    // Iterate over all centroids and calculate the distance to the target location
+    // Iterates over all centroids and computes the distance to the target location
     for (const auto& centroid : centroids_) {
-        // Calculate Euclidean distance between the current centroid and the target location
+        // Computes Euclidean distance between the current centroid and the target location
         double distance = (centroid - currAlpha_).norm();
 
-        // If the distance is smaller than the current minimum, update the closest centroid
         if (distance < minDistance) {
             minDistance = distance;
             closestCentroid = centroid;
         }
     }
-
-    // Log the closest centroid and the minimum distance for debugging purposes
-    RCLCPP_INFO(this->get_logger(), "Closest centroid found with distance: %f", minDistance);
-    RCLCPP_INFO(this->get_logger(), "Closest Centroid: [x: %f, y: %f, z: %f]", 
-                closestCentroid[0], closestCentroid[1], closestCentroid[2]);
 
     return closestCentroid;
 }
