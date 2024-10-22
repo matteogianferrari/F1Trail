@@ -1,5 +1,6 @@
 #include "tracker.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_ros/create_timer_ros.h"
 #include <string>
 
 
@@ -7,10 +8,8 @@
 using std::placeholders::_1;
 
 
-TrackerNode::TrackerNode(): Node("tracking_module") {
+TrackerNode::TrackerNode(): Node("tracking_module"), tf_buffer_{nullptr}, tf_listener_{nullptr} {
     isInitialized_ = false;
-    tf_buffer_ {nullptr};            
-    tf_listener_ {nullptr};
 
     // Gets all potential parameters
     this->declare_parameter("target_location_topic", "/target_loc");
@@ -29,6 +28,13 @@ TrackerNode::TrackerNode(): Node("tracking_module") {
     
     // create transform buffer and listener
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    // needed to check availability of transforms
+    auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+        this->get_node_base_interface(),
+        this->get_node_timers_interface());
+
+    tf_buffer_->setCreateTimerInterface(timer_interface);
+
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     // Subscribes to target topic
@@ -49,7 +55,12 @@ TrackerNode::TrackerNode(): Node("tracking_module") {
 
 void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::SharedPtr target_msg) {
     RCLCPP_INFO(this->get_logger(), "Received target location from camera tracking node.");
-
+    // check if the frame transform is available.
+    std::string err;
+    if (!tf_buffer_->canTransform(target_msg->header.frame_id, "base_link", this->now(), rclcpp::Duration(0), &err)) {
+        RCLCPP_WARN(this->get_logger(), "No transform available: %s", err.c_str());
+        return;
+    }
     // Performs frame transform on incoming data
     geometry_msgs::msg::PointStamped tf_target_msg;
     try {
@@ -79,7 +90,12 @@ void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::Shared
 
 void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::SharedPtr clusters_msg) {
     RCLCPP_INFO(this->get_logger(), "Received clusters centroids from clustering node.");
-
+    // check if the frame transform is available.
+    std::string err;
+    if (!tf_buffer_->canTransform(clusters_msg->header.frame_id, "base_link", this->now(), rclcpp::Duration(0), &err)) {
+        RCLCPP_WARN(this->get_logger(), "No transform available: %s", err.c_str());
+        return;
+    }
     // Performs frame transform on incoming data (ROS at its best here)
     geometry_msgs::msg::PoseArray tf_clusters_msg;
     try {
