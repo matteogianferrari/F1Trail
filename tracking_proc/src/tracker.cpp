@@ -46,7 +46,7 @@ TrackerNode::TrackerNode(): Node("tracking_module"), tf_buffer_{nullptr}, tf_lis
         cluster_centroids_topic, custom_qos_profile, std::bind(&TrackerNode::centroids_callback, this, std::placeholders::_1));
 
     // create publisher for target location point
-    pub_ = this->create_publisher<geometry_msgs::msg::Point>("/tracked_obj_loc", custom_qos_profile);
+    pub_ = this->create_publisher<geometry_msgs::msg::PointStamped>("/tracked_obj_loc", custom_qos_profile);
 
     // set initial time to compute delta
     previousTime_ = this->now();
@@ -84,7 +84,7 @@ void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::Shared
     }
     
     // Tracks the object
-    trackerCore(tf_target_msg.header.stamp);
+    trackerCore();
 }
 
 
@@ -126,11 +126,11 @@ void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::Shared
     }
 
     // Tracks the object
-    trackerCore(tf_clusters_msg.header.stamp);
+    trackerCore();
 }
 
 
-void TrackerNode::trackerCore(const rclcpp::Time& timestamp) {
+void TrackerNode::trackerCore() {
     // Applies sensor fusion between vision and clustering nodes
     // Selects the centroid that minimizes the distance w.r.t. the target location currAlpha
     beta_ = sensorFusion();
@@ -142,8 +142,9 @@ void TrackerNode::trackerCore(const rclcpp::Time& timestamp) {
     }
 
     // Computes the delta time between messages
-    rclcpp::Duration dt = timestamp - previousTime_;
-    previousTime_ = timestamp;
+    auto currTime = this->now();
+    rclcpp::Duration dt = currTime - previousTime_;
+    previousTime_ = currTime;
 
     // Updates the kalman filter matrices
     kalman_.updateMatrices(dt.seconds());
@@ -159,10 +160,12 @@ void TrackerNode::trackerCore(const rclcpp::Time& timestamp) {
     currAlpha_ = betaPred_;
 
     // Transforms Eigen to Point
-    geometry_msgs::msg::Point tracked;
-    tracked.x = betaPred_[0];
-    tracked.y = betaPred_[1];
-    tracked.z = betaPred_[2];
+    geometry_msgs::msg::PointStamped tracked;
+    tracked.header.stamp = currTime;
+    tracked.header.frame_id = "base_link";
+    tracked.point.x = betaPred_[0];
+    tracked.point.y = betaPred_[1];
+    tracked.point.z = betaPred_[2];
 
     RCLCPP_INFO(this->get_logger(), "Target Location: [x: %f, y: %f, z: %f]", 
                 betaPred_[0], betaPred_[1], betaPred_[2]);

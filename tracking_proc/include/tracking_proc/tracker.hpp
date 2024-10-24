@@ -83,10 +83,8 @@ private:
      * @details     This function performs sensor fusion between the target location and the centroids,
      *              applies the Kalman Filter for object tracking, and predicts the future position of
      *              the tracked object. The tracked position is then published as a message.
-     *
-     * @param[in]   timestamp Timestamp of the current message.
      */
-    void trackerCore(const rclcpp::Time& timestamp);
+    void trackerCore();
 
     /**
      * @fn      sensorFusion
@@ -128,7 +126,7 @@ private:
 
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subTargetLoc_;        /**< Subscriver to target location.*/
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subClusterCentroids_;    /**< Subscriber to clusters centroids.*/
-    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_;                           /**< Publisher of detected target location.*/
+    rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_;                           /**< Publisher of detected target location.*/
 
     KalmanFilter kalman_;   /**< Kalman Filter object to peform the tracking.*/
     
