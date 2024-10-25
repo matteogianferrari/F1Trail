@@ -13,7 +13,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
@@ -73,7 +73,7 @@ private:
      * 
      * @param[in] msg_loc A shared pointer to the received Point message with target coordinates.
      */
-    void target_position_callback(const geometry_msgs::msg::Point::SharedPtr msg_loc);
+    void target_position_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg_loc);
 
     /**
      * @fn void control_loop()
@@ -111,7 +111,7 @@ private:
     float Ki; ///< Integral gain for the PID controller.
     float Kd; ///< Derivative gain for the PID controller.
     float tau; ///< Time constant for the PID controller filter.
-    float sample_time; ///< Time interval for updating the PID controller.
+    float delta_time; ///< Time interval for updating the PID controller.
     float integrator_min; ///< Minimum value for the integrator to avoid windup.
     float integrator_max; ///< Maximum value for the integrator to avoid windup.
 
@@ -126,7 +126,7 @@ private:
     float current_speed; ///< Current speed of the vehicle.
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription_; ///< Subscriber for odometry data.
-    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr target_position_sub; ///< Subscriber for target position data.
+    rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr target_position_sub; ///< Subscriber for target position data.
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr throttle_pub; ///< Publisher for throttle commands.
 
     rclcpp::TimerBase::SharedPtr control_timer; ///< Timer for periodically running the control loop.

@@ -5,8 +5,8 @@ using std::placeholders::_1;
 
 LongitudinalPIDNode::LongitudinalPIDNode()
     : Node("longitudinal_ctr"),
-      Kp(0.3f), Ki(0.02f), Kd(0.05f), // PID coefficients
-      tau(0.02f), sample_time(0.1f),  // Time constants for PID control
+      Kp(0.2f), Ki(0.01f), Kd(0.15f), // PID coefficients
+      delta_time(0.5f),  // Time constant for PID control
       integrator(0.0f), integrator_min(-0.4f),
       integrator_max(5.0f), prev_error(0.0f),
       differentiator(0.0f), prev_measurement(0.0f),
@@ -17,21 +17,24 @@ LongitudinalPIDNode::LongitudinalPIDNode()
     // Initialize PID controller
     init_pid();
 
+    // Defines quality of service: all messages that you want to receive must have the same
+	rclcpp::QoS custom_qos_profile = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default))
+	.history(rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST)
+	.keep_last(10)
+	.reliability(rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+	.durability(rmw_qos_durability_policy_t::RMW_QOS_POLICY_DURABILITY_VOLATILE)
+	.avoid_ros_namespace_conventions(false);
+
     // Subscribe to odometry to track car's position
     odom_subscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/ego_racecar/odom", 10, std::bind(&LongitudinalPIDNode::odom_callback, this, std::placeholders::_1));
 
     // Subscribe to target position messages
-    target_position_sub = this->create_subscription<geometry_msgs::msg::Point>(
-        "/target_loc", 10, std::bind(&LongitudinalPIDNode::target_position_callback, this, std::placeholders::_1));
+    target_position_sub = this->create_subscription<geometry_msgs::msg::PointStamped>(
+        "/tracked_obj_loc", custom_qos_profile, std::bind(&LongitudinalPIDNode::target_position_callback, this, std::placeholders::_1));
 
     // Publisher for throttle command
     throttle_pub = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
-
-    // Timer for control loop (runs every 0.1 seconds, i.e., 10 Hz)
-    control_timer = this->create_wall_timer(
-        std::chrono::milliseconds(static_cast<int>(sample_time * 1000)),
-        std::bind(&LongitudinalPIDNode::control_loop, this));
 }
 
 // Callback for odometry data to update current position
@@ -43,10 +46,12 @@ void LongitudinalPIDNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr
 }
 
 // Callback for target position
-void LongitudinalPIDNode::target_position_callback(const geometry_msgs::msg::Point::SharedPtr msg_loc)
+void LongitudinalPIDNode::target_position_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg_tracker)
 {
-    target_position.x = msg_loc->x; // Set target x position
-    target_position.y = msg_loc->y; // Set target y position
+    target_position.x = msg_tracker->point.x; // Set target x position
+    target_position.y = msg_tracker->point.y; // Set target y position
+
+    control_loop();
 }
 
 // Control loop method that runs periodically to update the throttle command
@@ -97,7 +102,7 @@ float LongitudinalPIDNode::update_pid(float distance_to_target, float current_sp
     float proportional = Kp * error;
 
     // Integral term with anti-windup using the trapezoidal rule
-    integrator += 0.5f * Ki * sample_time * (error + prev_error);
+    integrator += 0.5f * Ki * delta_time * (error + prev_error);
 
     // Clamp integrator to its min and max values
     if (integrator > integrator_max)
@@ -110,7 +115,7 @@ float LongitudinalPIDNode::update_pid(float distance_to_target, float current_sp
     }
 
     // Derivative term (based on change in error over time)
-    differentiator = Kd * (error - prev_error) / sample_time;
+    differentiator = Kd * (error - prev_error) / delta_time;
 
     // Compute final PID output (throttle) and apply limits
     pid_output = proportional + integrator + differentiator - current_speed; // Subtracting current speed for smooth control
