@@ -17,9 +17,11 @@
  * 
  * @brief   Implements a Kalman Filter for estimating and tracking the state of an object.
  * 
- * @details This class is designed to predict the future state of a system and correct the
- *          predictions based on measurements. It uses a state vector to represent the
- *          object's position and velocity, and matrices to manage uncertainty and model the system's dynamics.
+ * @details This class implements a Kalman Filter using the constant velocity model to predict and correct
+ *          the state of an object over time. The Kalman Filter estimates the position and velocity of the
+ *          object and updates its predictions using new measurements. The class uses a state vector to 
+ *          represent the object's position and velocity, while leveraging matrices to manage uncertainty
+ *          and model the system's dynamics effectively.
  */
 class KalmanFilter
 {
@@ -43,9 +45,16 @@ public:
      * 
      * @brief       Corrects the estimation with the actual measurement.
      * 
+     * @details     The update function uses a bool to identify the sensor type.
+     *              The update process requires the use of the measurement covariance matrix,
+     *              which is defined for each sensor (camera and lidar). The bool is used
+     *              to assign the correct measurement covariance matrix to a local matrix R,
+     *              making the Innovation covariance matrix S computation easier.
+     *
      * @param[in]   z Measurement vector (x, y, z).
+     * @param[in]   sensorType True for Camera measurement, false for Lidar measurement.
      */
-    void update(const Eigen::VectorXd &z);
+    void update(const Eigen::VectorXd &z, bool sensorType);
 
     /**
      * @fn          setState
@@ -89,9 +98,13 @@ private:
 
     Eigen::MatrixXd Q_; /**< Process covariance matrix.*/
 
-    Eigen::MatrixXd H_; /**< Measurement matrix.*/
+    /**
+     * @brief Measurement matrix for camera and lidar (both measure the same components).
+     */
+    Eigen::MatrixXd H_; 
 
-    Eigen::MatrixXd R_; /**< Measurement covariance matrix.*/
+    Eigen::MatrixXd RCamera_;   /**< Measurement covariance matrix for the camera.*/
+    Eigen::MatrixXd RLidar_;    /**< Measurement covariance matrix for the lidar.*/
 
     double noiseAx_;    /**< Acceleration noise component for the X axis.*/
     double noiseAy_;    /**< Acceleration noise component for the Y axis.*/

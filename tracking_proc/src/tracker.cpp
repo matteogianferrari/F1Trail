@@ -61,6 +61,7 @@ void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::Shared
         RCLCPP_WARN(this->get_logger(), "No transform available: %s", err.c_str());
         return;
     }
+
     // Performs frame transform on incoming data
     geometry_msgs::msg::PointStamped tf_target_msg;
     try {
@@ -83,8 +84,8 @@ void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::Shared
         return;
     }
     
-    // Tracks the object
-    trackerCore();
+    // Tracks the object (true represents the camera measurement)
+    trackerCore(true);
 }
 
 
@@ -96,6 +97,7 @@ void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::Shared
         RCLCPP_WARN(this->get_logger(), "No transform available: %s", err.c_str());
         return;
     }
+
     // Performs frame transform on incoming data (ROS at its best here)
     geometry_msgs::msg::PoseArray tf_clusters_msg;
     try {
@@ -125,12 +127,12 @@ void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::Shared
         return;
     }
 
-    // Tracks the object
-    trackerCore();
+    // Tracks the object (false represents the lidar measurement)
+    trackerCore(false);
 }
 
 
-void TrackerNode::trackerCore() {
+void TrackerNode::trackerCore(bool sensorType) {
     // Applies sensor fusion between vision and clustering nodes
     // Selects the centroid that minimizes the distance w.r.t. the target location currAlpha
     beta_ = sensorFusion();
@@ -153,7 +155,7 @@ void TrackerNode::trackerCore() {
     kalman_.predict();
 
     // Updates the estimation with the measurement
-    kalman_.update(beta_);
+    kalman_.update(beta_, sensorType);
 
     // Gets the object state (x, y, z) from kalman filter
     betaPred_ = kalman_.getState();

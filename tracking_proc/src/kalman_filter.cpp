@@ -19,14 +19,21 @@ KalmanFilter::KalmanFilter() {
           0., 0., 0., 0., 100., 0.,
           0., 0., 0., 0., 0., 100.;
 
-    // Initializes the measurement covariance matrix.
-    // The diagonal values (0.025) represent the measurement noise variance for the position (x, y, z),
-    // indicating the sensor's high accuracy with a low variance.
-    // The off-diagonal values are zero, assuming that measurement errors between the axes are independent.
-    R_ = Eigen::MatrixXd(3, 3);
-    R_ << 0.025, 0., 0.,
-          0., 0.025, 0.;
-          0., 0., 0.025;
+    // Initializes the Camera measurement covariance matrix.
+    // The values are set to be the squared variance of the measurement,
+    // which is assumed to be +-70mm (depends on the camera used).
+    RCamera_ = Eigen::MatrixXd(3, 3);
+    RCamera_ << 0.0049, 0., 0.,
+                0., 0.0049, 0.;
+                0., 0., 0.;
+
+    // Initializes the Lidar measurement covariance matrix.
+    // The values are set to be the squared variance of the measurement,
+    // which by datasheet is said to be +-40mm (depends on the lidar used).
+    RLidar_ = Eigen::MatrixXd(3, 3);
+    RLidar_ << 0.0016, 0., 0.,
+               0., 0.0016, 0.;
+               0., 0., 0.;
 
     // Initializes the measurement matrix.
     // Maps the state vector (which includes both position and velocity) to the measurement vector.
@@ -61,14 +68,17 @@ void KalmanFilter::predict() {
 }
 
 
-void KalmanFilter::update(const Eigen::VectorXd &z) {
+void KalmanFilter::update(const Eigen::VectorXd &z, bool sensorType) {
+    // Selects the right measurement covariance matrix based on the sensor
+    Eigen::MatrixXd R = (sensorType) ? RCamera_ : RLidar_;
+
     // Measurement residual (innovation).
     // Difference between the actual measurement `z` and the predicted measurement.
     Eigen::VectorXd y = z - H_ * x_;
 
     // Innovation covariance matrix.
     // Multiplying by 1e-6 helps with numerical stability during the computation.
-    Eigen::MatrixXd S = H_ * P_ * H_.transpose() + R_;
+    Eigen::MatrixXd S = H_ * P_ * H_.transpose() + R;
     S += Eigen::MatrixXd::Identity(S.rows(), S.cols()) * 1e-6;
 
     // Identity matrix
