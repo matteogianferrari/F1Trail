@@ -114,7 +114,6 @@ void ImageDetectionNode::stereo_target_detect(cv_bridge::CvImageConstPtr left_im
         RCLCPP_INFO(this->get_logger(), "Marker location found!");
         pub_->publish(pt_msg);
     }
-
 }
 
 

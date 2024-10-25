@@ -6,6 +6,9 @@ build/
 *.dox
 *.wikidoc
 
+# vscode
+.vscode/
+
 # eclipse stuff
 .project
 .cproject
