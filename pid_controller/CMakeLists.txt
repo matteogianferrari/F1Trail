@@ -30,6 +30,7 @@ install(TARGETS longitudinal_pid_node
 # Install the launch files
 install(DIRECTORY 
   launch
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 
