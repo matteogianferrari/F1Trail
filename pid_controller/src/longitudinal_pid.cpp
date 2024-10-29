@@ -12,6 +12,10 @@ LongitudinalPIDNode::LongitudinalPIDNode() : Node("longitudinal_ctr"),
     pid_output(0.0f), current_speed(0.0f), delta_time(0.5f),
     current_position{0.0f, 0.0f}, target_position{0.0f, 0.0f}           
 {
+    // Gets all potential parameters
+	this->declare_parameter("threshold_distance", 2.0);
+	threshold_distance = this->get_parameter("threshold_distance").as_double();
+
     // Defines quality of service: all messages that you want to receive must have the same
 	rclcpp::QoS custom_qos_profile = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default))
 	.history(rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST)
@@ -67,11 +71,8 @@ void LongitudinalPIDNode::control_loop() {
 
 
 float LongitudinalPIDNode::update_pid(float distance_to_target, float current_speed) {
-    // Threshold for stopping
-    const float stop_threshold = 2.0f; // Distance threshold to stop (2 meters)
-
     // Checks if the target distance is lower than the threshold
-    if (distance_to_target < stop_threshold) {
+    if (distance_to_target < threshold_distance) {
         RCLCPP_INFO(this->get_logger(), "Car is near the target, stopping %f", distance_to_target);
 
         // Stops the car (throttle = 0) and resets the integrator to avoid windup

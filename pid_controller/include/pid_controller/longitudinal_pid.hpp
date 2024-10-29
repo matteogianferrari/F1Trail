@@ -121,6 +121,8 @@ private:
 
     float delta_time;   /**< Time interval for updating the PID controller.*/
 
+    double threshold_distance;  /**< Threshold distance to maintain from the tracked object.*/
+
     float integrator_min;   /**< Minimum value for the integrator to avoid windup.*/
     float integrator_max;   /**< Maximum value for the integrator to avoid windup.*/
     float integrator;       /**< Integrator state for the PID controller.*/
