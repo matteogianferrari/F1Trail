@@ -24,7 +24,7 @@ KalmanFilter::KalmanFilter() {
     // which is assumed to be +-70mm (depends on the camera used).
     RCamera_ = Eigen::MatrixXd(3, 3);
     RCamera_ << 0.0049, 0., 0.,
-                0., 0.0049, 0.;
+                0., 0.0049, 0.,
                 0., 0., 0.;
 
     // Initializes the Lidar measurement covariance matrix.
@@ -32,7 +32,7 @@ KalmanFilter::KalmanFilter() {
     // which by datasheet is said to be +-40mm (depends on the lidar used).
     RLidar_ = Eigen::MatrixXd(3, 3);
     RLidar_ << 0.0016, 0., 0.,
-               0., 0.0016, 0.;
+               0., 0.0016, 0.,
                0., 0., 0.;
 
     // Initializes the measurement matrix.

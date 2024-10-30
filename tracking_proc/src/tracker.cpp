@@ -1,5 +1,5 @@
 #include "tracker.hpp"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/create_timer_ros.h"
 #include <string>
 
@@ -57,7 +57,7 @@ void TrackerNode::target_callback(const geometry_msgs::msg::PointStamped::Shared
     RCLCPP_INFO(this->get_logger(), "Received target location from camera tracking node.");
     // check if the frame transform is available.
     std::string err;
-    if (!tf_buffer_->canTransform(target_msg->header.frame_id, "base_link", this->now(), rclcpp::Duration(0), &err)) {
+    if (!tf_buffer_->canTransform(target_msg->header.frame_id, "base_link", this->now(), rclcpp::Duration(0,0), &err)) {
         RCLCPP_WARN(this->get_logger(), "No transform available: %s", err.c_str());
         return;
     }
@@ -93,7 +93,7 @@ void TrackerNode::centroids_callback(const geometry_msgs::msg::PoseArray::Shared
     RCLCPP_INFO(this->get_logger(), "Received clusters centroids from clustering node.");
     // check if the frame transform is available.
     std::string err;
-    if (!tf_buffer_->canTransform(clusters_msg->header.frame_id, "base_link", this->now(), rclcpp::Duration(0), &err)) {
+    if (!tf_buffer_->canTransform(clusters_msg->header.frame_id, "base_link", this->now(), rclcpp::Duration(0,0), &err)) {
         RCLCPP_WARN(this->get_logger(), "No transform available: %s", err.c_str());
         return;
     }
