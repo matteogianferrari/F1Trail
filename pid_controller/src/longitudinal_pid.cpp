@@ -6,7 +6,7 @@ using std::placeholders::_1;
 
 
 LongitudinalPIDNode::LongitudinalPIDNode() : Node("longitudinal_ctr"),
-    Kp(0.2f), Ki(0.01f), Kd(0.15f),
+    Kp(0.2f), Ki(0.01f), Kd(0.2f),
     integrator(0.0f), integrator_min(-0.4f), integrator_max(5.0f),
     prev_error(0.0f), differentiator(0.0f), prev_measurement(0.0f),
     pid_output(0.0f), current_speed(0.0f), delta_time(0.5f),
@@ -75,9 +75,10 @@ float LongitudinalPIDNode::update_pid(float distance_to_target, float current_sp
     if (distance_to_target < threshold_distance) {
         RCLCPP_INFO(this->get_logger(), "Car is near the target, stopping %f", distance_to_target);
 
-        // Stops the car (throttle = 0) and resets the integrator to avoid windup
+        // Stops the car (throttle = 0) and resets the integrator to avoid windup and previous error to avoid derivative spikes
         pid_output = 0.0f;
         integrator = 0.0f;
+        prev_error = 0.0f;
 
         return pid_output;
     }
