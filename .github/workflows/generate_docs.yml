@@ -10,6 +10,8 @@ on:
       - main
       - gh-pages
 
+permissions: write-all
+
 jobs:
   generate-docs:
     runs-on: ubuntu-latest
