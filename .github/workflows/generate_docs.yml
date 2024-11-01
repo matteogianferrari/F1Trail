@@ -29,6 +29,12 @@ jobs:
         run: |
           doxygen doxyfile_conf
 
+        # Debugging step: List files in docs/html to confirm generation
+      - name: List Generated Documentation Files
+        run: |
+          echo "Listing files in docs/html directory after Doxygen generation:"
+          ls -R docs/html
+
       - name: Deploy Documentation to GitHub Pages
         if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
