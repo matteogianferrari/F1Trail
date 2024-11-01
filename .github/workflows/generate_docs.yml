@@ -10,8 +10,6 @@ on:
       - main
       - gh-pages
 
-permissions: write-all
-
 jobs:
   generate-docs:
     runs-on: ubuntu-latest
@@ -29,16 +27,24 @@ jobs:
         run: |
           doxygen doxyfile_conf
 
-        # Debugging step: List files in docs/html to confirm generation
+      # Debugging step: List files in docs/html to confirm generation
       - name: List Generated Documentation Files
         run: |
           echo "Listing files in docs/html directory after Doxygen generation:"
           ls -R docs/html
 
+      # Optional: Check if index.html exists to ensure generation was successful
+      - name: Verify index.html Exists
+        run: |
+          if [ ! -f docs/html/index.html ]; then
+            echo "Doxygen failed to generate index.html"
+            exit 1
+          fi
+
       - name: Deploy Documentation to GitHub Pages
-        if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/html
           publish_branch: gh-pages
+          force_orphan: true
