@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - main  
+      - gh-pages
   pull_request:
     branches:
       - main
+      - gh-pages
+
+permissions: write-all
 
 jobs:
   generate-docs:
