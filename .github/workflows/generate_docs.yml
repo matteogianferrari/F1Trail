@@ -1,12 +1,23 @@
 name: Generate Doxygen Documentation
 
 on:
+  # Runs on pushes and pull_requests on main and gh-pages branches
   push:
     branches:
       - main  
+
   pull_request:
     branches:
       - main
+
+# Allows you to run this workflow manually from the Actions tab
+workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   generate-docs:
@@ -14,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Doxygen
         run: |
@@ -25,10 +36,24 @@ jobs:
         run: |
           doxygen doxyfile_conf
 
+      # Debugging step: List files in docs/html to confirm generation
+      - name: List Generated Documentation Files
+        run: |
+          echo "Listing files in docs/html directory after Doxygen generation:"
+          ls -R docs/html
+
+      # Optional: Check if index.html exists to ensure generation was successful
+      - name: Verify index.html Exists
+        run: |
+          if [ ! -f docs/html/index.html ]; then
+            echo "Doxygen failed to generate index.html"
+            exit 1
+          fi
+
       - name: Deploy Documentation to GitHub Pages
         if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/html
+          publish_dir: docs/html
           publish_branch: gh-pages
