@@ -117,8 +117,6 @@ private:
     float Ki;   /**< Integral gain for the PID controller.*/
     float Kd;   /**< Derivative gain for the PID controller.*/
 
-    float tau;  /**< Time constant for the PID controller filter.*/
-
     float delta_time;   /**< Time interval for updating the PID controller.*/
 
     double threshold_distance;  /**< Threshold distance to maintain from the tracked object.*/
