@@ -9,7 +9,7 @@ LongitudinalPIDNode::LongitudinalPIDNode() : Node("longitudinal_ctr"),
     Kp(3.0f), Ki(0.05f), Kd(0.2f),
     integrator(0.0f), integrator_min(-0.3f), integrator_max(2.0f),
     prev_error(0.0f), differentiator(0.0f), prev_measurement(0.0f),
-    pid_output(0.0f), current_speed(0.0f), delta_time(0.1f),
+    pid_output(0.0f), current_speed(0.0f),
     current_position{0.0f, 0.0f}, target_position{0.0f, 0.0f}           
 {
     // Gets all potential parameters
@@ -34,6 +34,8 @@ LongitudinalPIDNode::LongitudinalPIDNode() : Node("longitudinal_ctr"),
 
     // Publisher for throttle command
     throttle_pub = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
+
+    prev_time = this->now();
 }
 
 
@@ -73,6 +75,7 @@ void LongitudinalPIDNode::control_loop() {
 float LongitudinalPIDNode::update_pid(float distance_to_target, float current_speed) {
     // Calculate the error as the difference between distance to target and threshold distance to keep from target
     float error = (distance_to_target - threshold_distance);
+    double now = this->now();
 
     // If target is forward and error is small, stop the car and reset PID to avoid instability
     if (error > 0 && error < 0.1) {
@@ -82,15 +85,17 @@ float LongitudinalPIDNode::update_pid(float distance_to_target, float current_sp
         pid_output = 0.0f;
         integrator = 0.0f;
         prev_error = 0.0f;
-
+        prev_time = now;
         return pid_output;
     }
+    double dt = prev_time - this->now();
+    prev_time = now;
 
     // Proportional term
     float proportional = Kp * error;
 
     // Integral term with anti-windup using the trapezoidal rule
-    integrator += 0.5f * Ki * delta_time * (error + prev_error);
+    integrator += 0.5f * Ki * dt * (error + prev_error);
 
     // Clamp integrator to its min and max values
     if (integrator > integrator_max) {
@@ -101,7 +106,7 @@ float LongitudinalPIDNode::update_pid(float distance_to_target, float current_sp
     }
 
     // Derivative term (based on change in error over time)
-    differentiator = Kd * (error - prev_error) / delta_time;
+    differentiator = Kd * (error - prev_error) / dt;
 
     // Compute final PID output (throttle) and apply limits.
     // Subtracting current speed for smooth control.

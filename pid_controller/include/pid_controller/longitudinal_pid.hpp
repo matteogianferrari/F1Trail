@@ -117,8 +117,6 @@ private:
     float Ki;   /**< Integral gain for the PID controller.*/
     float Kd;   /**< Derivative gain for the PID controller.*/
 
-    float delta_time;   /**< Time interval for updating the PID controller.*/
-
     double threshold_distance;  /**< Threshold distance to maintain from the tracked object.*/
 
     float integrator_min;   /**< Minimum value for the integrator to avoid windup.*/
@@ -136,6 +134,8 @@ private:
 
     Position current_position;  /**< Current position of the vehicle.*/
     Position target_position;   /**< Target position the vehicle should reach.*/
+
+    double prev_time;   /**< Previous timestamp of control loop*/
 
     rclcpp::TimerBase::SharedPtr control_timer; /**< Timer for periodically running the control loop.*/
 };
